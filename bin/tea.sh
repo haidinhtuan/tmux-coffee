@@ -9,11 +9,12 @@ readonly DEFAULT_SESSION_NAME_STYLE="basename"
 readonly DEFAULT_FZF_TMUX_OPTIONS="-p 90%"
 readonly DEFAULT_EZA_OPTIONS="-ahlT -L=2 -s=extension --group-directories-first --icons --git --git-ignore --no-user --color=always --color-scale=all --color-scale-mode=gradient"
 readonly DEFAULT_INCLUDE_SESSIONS="true"
+readonly DEFAULT_MODE="zoxide"
 
 readonly PROMPT='  '
 readonly MARKER=''
 readonly BORDER_LABEL='   tmux-tea   '
-readonly HEADER='^f   ^j   ^s   ^w   ^x '
+readonly HEADER='^f 󰉋  ^j 󰔠  ^s 󰝰  ^w 󱂬  ^x 󰔫  ^d 󰗨  ^n 󰐕'
 
 # home path fix for sed
 home_replacer=""
@@ -48,6 +49,7 @@ session_name_style=$(get_tmux_option "@tea-session-name" "$DEFAULT_SESSION_NAME_
 default_command=$(get_tmux_option "@tea-default-command" "")
 eza_options=$(get_tmux_option "@tea-eza-options" "$DEFAULT_EZA_OPTIONS")
 include_sessions=$(get_tmux_option "@tea-include-sessions" "$DEFAULT_INCLUDE_SESSIONS")
+default_mode=$(get_tmux_option "@tea-default-mode" "$DEFAULT_MODE")
 
 session_preview_cmd="tmux capture-pane -ep -t"
 dir_preview_cmd="$(which eza) ${eza_options}"
@@ -59,7 +61,10 @@ session_bind="ctrl-s:change-prompt(  )+reload(tmux list-sessions -F '#S')+
 zoxide_bind="ctrl-j:change-prompt(  )+reload(zoxide query -l | sed -e \"$home_replacer\")+change-preview(eval $dir_preview_cmd {})+change-preview-window(right)"
 find_bind="ctrl-f:change-prompt(  )+reload(fd -H -d $max_depth -t d . $find_path | sed 's|/$||')+change-preview($dir_preview_cmd {})+change-preview-window(right)"
 window_bind="ctrl-w:change-prompt(  )+reload(tmux list-windows -a -F '#{session_name}:#{window_index}')+change-preview($session_preview_cmd {})+change-preview-window($preview_position)"
-kill_bind="ctrl-x:change-prompt(  )+execute-silent(tmux kill-session -t {})+reload-sync(tmux list-sessions -F '#S' && zoxide query -l | sed -e \"$home_replacer\")"
+kill_bind_disabled="ctrl-x:change-prompt(  )+execute-silent(tmux kill-session -t {})+reload-sync(tmux list-sessions -F '#S' && zoxide query -l | sed -e \"$home_replacer\")"
+
+delete_bind="ctrl-d:execute(bash $HOME/.tmux/plugins/tmux-tea/bin/tea-kill-session.sh {})+reload-sync(tmux list-sessions -F '#S')"
+new_session_bind="ctrl-n:execute(bash $HOME/.tmux/plugins/tmux-tea/bin/tea-new-session.sh)+reload-sync(tmux list-sessions -F '#S')"
 
 # determine if the tmux server is running
 tmux_running=1
@@ -90,6 +95,22 @@ get_fzf_results() {
     else
         get_zoxide_results
     fi
+}
+
+get_initial_results() {
+    case "$default_mode" in
+        sessions) tmux list-sessions -F '#S' 2>/dev/null ;;
+        find) fd -H -d "$max_depth" -t d . "$find_path" | sed 's|/$||' ;;
+        *) get_fzf_results ;;
+    esac
+}
+
+get_initial_prompt() {
+    case "$default_mode" in
+        sessions) echo '  ' ;;
+        find) echo '  ' ;;
+        *) echo "$PROMPT" ;;
+    esac
 }
 
 create_and_attach_session() {
@@ -222,26 +243,44 @@ if [[ $# -ge 1 ]]; then
 else
     case $run_type in
     attached)
-        result=$(get_fzf_results | fzf-tmux \
+        result=$(get_initial_results | fzf-tmux \
             --bind "$find_bind" --bind "$session_bind" --bind "$tab_bind" --bind "$window_bind" --bind "$t_bind" \
-            --bind "$zoxide_bind" --bind "$kill_bind" --border-label "$BORDER_LABEL" --header "$HEADER" \
-            --no-sort --cycle --delimiter='/' --with-nth="$show_nth" --keep-right --prompt "$PROMPT" --marker "$MARKER" \
-            --preview "$preview" --preview-window="$preview_position",75% "$fzf_tmux_options" --layout="$layout")
+            --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" \
+            --border-label "$BORDER_LABEL" --header "$HEADER" \
+            --no-sort --cycle --delimiter='/' --with-nth="$show_nth" --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" \
+            --preview "$preview" --preview-window="$preview_position",75% "$fzf_tmux_options" --layout="$layout" || true)
         ;;
     detached)
-        result=$(get_fzf_results | fzf \
+        result=$(get_initial_results | fzf \
             --bind "$find_bind" --bind "$session_bind" --bind "$tab_bind" --bind "$window_bind" --bind "$t_bind" \
-            --bind "$zoxide_bind" --bind "$kill_bind" --border-label "$BORDER_LABEL" --header "$HEADER" \
-            --no-sort --cycle --delimiter='/' --with-nth="$show_nth" --keep-right --prompt "$PROMPT" --marker "$MARKER" \
-            --preview "$preview" --preview-window=top,75%)
+            --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" \
+            --border-label "$BORDER_LABEL" --header "$HEADER" \
+            --no-sort --cycle --delimiter='/' --with-nth="$show_nth" --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" \
+            --preview "$preview" --preview-window=top,75% || true)
         ;;
     serverless)
-        result=$(get_fzf_results | fzf \
-            --bind "$find_bind" --bind "$tab_bind" --bind "$zoxide_bind" --bind "$kill_bind" --bind "$t_bind" \
+        result=$(get_initial_results | fzf \
+            --bind "$find_bind" --bind "$tab_bind" --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" --bind "$t_bind" \
             --border-label "$BORDER_LABEL" --header "$HEADER" --no-sort --cycle --delimiter='/' --with-nth="$show_nth" \
-            --keep-right --prompt "$PROMPT" --marker "$MARKER" --preview "$dir_preview_cmd {}")
+            --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" --preview "$dir_preview_cmd {}" || true)
         ;;
     esac
+fi
+
+# Handle Ctrl+n: create new session from typed name
+if [[ "$result" == NEW_SESSION:* ]]; then
+    session_name=$(echo "${result#NEW_SESSION:}" | tr ' .:' '_')
+    [[ -z "$session_name" ]] && exit 0
+    if [[ -n "$default_command" ]]; then
+        tmux new-session -d -s "$session_name" -c "$HOME" "$default_command"
+    else
+        tmux new-session -d -s "$session_name" -c "$HOME"
+    fi
+    case $run_type in
+        attached) tmux switch-client -t "$session_name" ;;
+        detached | serverless) tmux attach -t "$session_name" ;;
+    esac
+    exit 0
 fi
 
 [[ "$result" ]] || exit 0
