@@ -55,16 +55,16 @@ Press `Ctrl+d` on a selected session:
 
 ```tmux
 # Default command to run in new sessions
-set -g @tea-default-command "$EDITOR"
+set -g @coffee-default-command "$EDITOR"
 
 # Start in sessions mode (default: "zoxide")
-set -g @tea-default-mode "sessions"
+set -g @coffee-default-mode "sessions"
 
 # Default directory for find mode
-set -g @tea-find-path "$HOME/Projects"
+set -g @coffee-find-path "$HOME/Projects"
 
 # Preview position: "top", "bottom", "left", "right"
-set -g @tea-preview-position "top"
+set -g @coffee-preview-position "top"
 ```
 
 ## Requirements

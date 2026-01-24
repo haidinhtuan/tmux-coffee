@@ -120,7 +120,7 @@ if tmux has-session -t "$session_name" 2>/dev/null; then
 fi
 
 # Get default command from tmux option
-default_command=$(tmux show-option -gqv @tea-default-command 2>/dev/null)
+default_command=$(tmux show-option -gqv @coffee-default-command 2>/dev/null)
 
 # Create session (don't attach, just create)
 if [[ -n "$default_command" ]]; then

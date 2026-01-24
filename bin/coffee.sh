@@ -13,7 +13,7 @@ readonly DEFAULT_MODE="zoxide"
 
 readonly PROMPT='  '
 readonly MARKER=''
-readonly BORDER_LABEL='   tmux-tea   '
+readonly BORDER_LABEL='   tmux-coffee   '
 readonly HEADER='^f 󰉋  ^j 󰔠  ^s 󰝰  ^w 󱂬  ^x 󰔫  ^d 󰗨  ^n 󰐕'
 
 # home path fix for sed
@@ -22,7 +22,7 @@ fzf_tmux_options=${FZF_TMUX_OPTS:-"$DEFAULT_FZF_TMUX_OPTIONS"}
 [[ "$HOME" =~ ^[a-zA-Z0-9_/.@-]+$ ]] && home_replacer="s|^$HOME/|~/|"
 
 # Cache tmux options for performance
-TMUX_OPTIONS=$(tmux show-options -g | grep "^@tea-")
+TMUX_OPTIONS=$(tmux show-options -g | grep "^@coffee-")
 
 get_tmux_option() {
     local option="$1"
@@ -36,20 +36,20 @@ get_tmux_option() {
     echo "${value:-$default}"
 }
 
-find_path=$(get_tmux_option "@tea-find-path" "$DEFAULT_FIND_PATH")
+find_path=$(get_tmux_option "@coffee-find-path" "$DEFAULT_FIND_PATH")
 if [[ ! -d "$find_path" ]]; then
     find_path="~"
 fi
 
-show_nth=$(get_tmux_option "@tea-show-nth" "$DEFAULT_SHOW_NTH")
-max_depth=$(get_tmux_option "@tea-max-depth" "$DEFAULT_MAX_DEPTH")
-preview_position=$(get_tmux_option "@tea-preview-position" "$DEFAULT_PREVIEW_POSITION")
-layout=$(get_tmux_option "@tea-layout" "$DEFAULT_LAYOUT")
-session_name_style=$(get_tmux_option "@tea-session-name" "$DEFAULT_SESSION_NAME_STYLE")
-default_command=$(get_tmux_option "@tea-default-command" "")
-eza_options=$(get_tmux_option "@tea-eza-options" "$DEFAULT_EZA_OPTIONS")
-include_sessions=$(get_tmux_option "@tea-include-sessions" "$DEFAULT_INCLUDE_SESSIONS")
-default_mode=$(get_tmux_option "@tea-default-mode" "$DEFAULT_MODE")
+show_nth=$(get_tmux_option "@coffee-show-nth" "$DEFAULT_SHOW_NTH")
+max_depth=$(get_tmux_option "@coffee-max-depth" "$DEFAULT_MAX_DEPTH")
+preview_position=$(get_tmux_option "@coffee-preview-position" "$DEFAULT_PREVIEW_POSITION")
+layout=$(get_tmux_option "@coffee-layout" "$DEFAULT_LAYOUT")
+session_name_style=$(get_tmux_option "@coffee-session-name" "$DEFAULT_SESSION_NAME_STYLE")
+default_command=$(get_tmux_option "@coffee-default-command" "")
+eza_options=$(get_tmux_option "@coffee-eza-options" "$DEFAULT_EZA_OPTIONS")
+include_sessions=$(get_tmux_option "@coffee-include-sessions" "$DEFAULT_INCLUDE_SESSIONS")
+default_mode=$(get_tmux_option "@coffee-default-mode" "$DEFAULT_MODE")
 
 session_preview_cmd="tmux capture-pane -ep -t"
 dir_preview_cmd="$(which eza) ${eza_options}"
@@ -63,8 +63,8 @@ find_bind="ctrl-f:change-prompt(  )+reload(fd -H -d $max_depth -t d . $fin
 window_bind="ctrl-w:change-prompt(  )+reload(tmux list-windows -a -F '#{session_name}:#{window_index}')+change-preview($session_preview_cmd {})+change-preview-window($preview_position)"
 kill_bind_disabled="ctrl-x:change-prompt(  )+execute-silent(tmux kill-session -t {})+reload-sync(tmux list-sessions -F '#S' && zoxide query -l | sed -e \"$home_replacer\")"
 
-delete_bind="ctrl-d:execute(bash $HOME/.tmux/plugins/tmux-tea/bin/tea-kill-session.sh {})+reload-sync(tmux list-sessions -F '#S')"
-new_session_bind="ctrl-n:execute(bash $HOME/.tmux/plugins/tmux-tea/bin/tea-new-session.sh)+reload-sync(tmux list-sessions -F '#S')"
+delete_bind="ctrl-d:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-kill-session.sh {})+reload-sync(tmux list-sessions -F '#S')"
+new_session_bind="ctrl-n:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-new-session.sh)+reload-sync(tmux list-sessions -F '#S')"
 
 # determine if the tmux server is running
 tmux_running=1
@@ -152,10 +152,10 @@ create_and_attach_session() {
 
 show_help() {
     cat <<'EOF'
-tmux-tea - tmux sessions as easy as tea
+tmux-coffee - tmux sessions as easy as coffee
 
 USAGE:
-    tea [OPTIONS] [DIRECTORY...]
+    coffee [OPTIONS] [DIRECTORY...]
 
 OPTIONS:
     -h, --help      Show this help message
@@ -165,10 +165,10 @@ ARGUMENTS:
                     Can be absolute paths or zoxide queries
 
 EXAMPLES:
-    tea                          # Interactive mode with fzf
-    tea ~/Projects/myapp         # Open session for ~/Projects/myapp
-    tea work personal            # Open multiple sessions using zoxide
-    tea ~/code/app1 ~/code/app2  # Open multiple sessions with paths
+    coffee                          # Interactive mode with fzf
+    coffee ~/Projects/myapp         # Open session for ~/Projects/myapp
+    coffee work personal            # Open multiple sessions using zoxide
+    coffee ~/code/app1 ~/code/app2  # Open multiple sessions with paths
 
 KEYBINDINGS (Interactive mode):
     Ctrl+f    Directory mode (find directories)
@@ -176,9 +176,9 @@ KEYBINDINGS (Interactive mode):
     Ctrl+s    Session mode (existing sessions)
     Ctrl+w    Window mode (existing windows)
     Ctrl+x    Kill mode (delete sessions)
-    Ctrl+t    Toggle tea / exit
+    Ctrl+t    Toggle coffee / exit
 
-For more information, see: https://github.com/2kabhishek/tmux-tea
+For more information, see: https://github.com/2kabhishek/tmux-coffee
 EOF
 }
 
