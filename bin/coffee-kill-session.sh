@@ -112,13 +112,30 @@ tput cnorm
 # If No selected, exit
 [[ $selected -eq 0 ]] && exit 0
 
-# Kill the session
-tmux kill-session -t "$session_to_kill" 2>/dev/null
-
-# If we killed the current session, switch to another one
+# Handle session deletion with fallback to "main"
 if [[ "$session_to_kill" == "$current_session" ]]; then
-    new_session=$(tmux list-sessions -F '#S' 2>/dev/null | head -1)
-    if [[ -n "$new_session" ]]; then
-        tmux switch-client -t "$new_session" 2>/dev/null
+    # Killing current session - must SWITCH FIRST, then kill (otherwise popup dies with session)
+
+    # Find target session to switch to
+    if [[ "$session_to_kill" != "main" ]] && tmux has-session -t main 2>/dev/null; then
+        target_session="main"
+    else
+        # Find any other existing session
+        target_session=$(tmux list-sessions -F '#S' 2>/dev/null | grep -v "^${session_to_kill}$" | head -1)
     fi
+
+    if [[ -z "$target_session" ]]; then
+        # No other session exists - create "main" first
+        tmux new-session -d -s main 2>/dev/null
+        tmux set-environment -t main SESSION_VPN "none"
+        target_session="main"
+    fi
+
+    # Switch first, then kill
+    tmux switch-client -t "$target_session" 2>/dev/null
+    sleep 0.1  # Brief pause to let switch complete
+    tmux kill-session -t "$session_to_kill" 2>/dev/null
+else
+    # Not the current session, just kill it
+    tmux kill-session -t "$session_to_kill" 2>/dev/null
 fi

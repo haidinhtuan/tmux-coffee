@@ -53,18 +53,20 @@ default_mode=$(get_tmux_option "@coffee-default-mode" "$DEFAULT_MODE")
 
 session_preview_cmd="tmux capture-pane -ep -t"
 dir_preview_cmd="$(which eza) ${eza_options}"
-preview="$session_preview_cmd {} 2&>/dev/null || eval $dir_preview_cmd {}"
+# Strip session marker prefix before preview
+preview="target=\$(echo {} | sed -e 's/^● //' -e 's/^  //'); $session_preview_cmd \"\$target\" 2>/dev/null || eval $dir_preview_cmd \"\$target\""
 
 t_bind="ctrl-t:abort"
 tab_bind="tab:down,btab:up"
-session_bind="ctrl-s:change-prompt(  )+reload(tmux list-sessions -F '#S')+change-preview-window($preview_position,85%)"
+list_sessions_cmd="bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-list-sessions.sh"
+session_bind="ctrl-s:change-prompt(  )+reload($list_sessions_cmd)+change-preview-window($preview_position,85%)"
 zoxide_bind="ctrl-j:change-prompt(  )+reload(zoxide query -l | sed -e \"$home_replacer\")+change-preview(eval $dir_preview_cmd {})+change-preview-window(right)"
 find_bind="ctrl-f:change-prompt(  )+reload(fd -H -d $max_depth -t d . $find_path | sed 's|/$||')+change-preview($dir_preview_cmd {})+change-preview-window(right)"
 window_bind="ctrl-w:change-prompt(  )+reload(tmux list-windows -a -F '#{session_name}:#{window_index}')+change-preview($session_preview_cmd {})+change-preview-window($preview_position)"
 kill_bind_disabled="ctrl-x:change-prompt(  )+execute-silent(tmux kill-session -t {})+reload-sync(tmux list-sessions -F '#S' && zoxide query -l | sed -e \"$home_replacer\")"
 
-delete_bind="ctrl-d:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-kill-session.sh {})+reload-sync(tmux list-sessions -F '#S')"
-new_session_bind="ctrl-n:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-new-session.sh)+reload-sync(tmux list-sessions -F '#S')"
+delete_bind="ctrl-d:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-kill-session.sh \$(echo {} | sed -e 's/^● //' -e 's/^  //'))+reload-sync($list_sessions_cmd)"
+new_session_bind="ctrl-n:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-new-session.sh)+reload-sync($list_sessions_cmd)"
 
 # determine if the tmux server is running
 tmux_running=1
@@ -99,7 +101,7 @@ get_fzf_results() {
 
 get_initial_results() {
     case "$default_mode" in
-        sessions) tmux list-sessions -F '#S' 2>/dev/null ;;
+        sessions) bash "$HOME/.tmux/plugins/tmux-coffee/bin/coffee-list-sessions.sh" ;;
         find) fd -H -d "$max_depth" -t d . "$find_path" | sed 's|/$||' ;;
         *) get_fzf_results ;;
     esac
@@ -246,7 +248,7 @@ else
         result=$(get_initial_results | fzf-tmux \
             --bind "$find_bind" --bind "$session_bind" --bind "$tab_bind" --bind "$window_bind" --bind "$t_bind" \
             --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" \
-            --border-label "$BORDER_LABEL" --header "$HEADER" \
+            --border-label "$BORDER_LABEL" --header "$HEADER" --ansi \
             --no-sort --cycle --delimiter='/' --with-nth="$show_nth" --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" \
             --preview "$preview" --preview-window="$preview_position",75% "$fzf_tmux_options" --layout="$layout" || true)
         ;;
@@ -254,14 +256,14 @@ else
         result=$(get_initial_results | fzf \
             --bind "$find_bind" --bind "$session_bind" --bind "$tab_bind" --bind "$window_bind" --bind "$t_bind" \
             --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" \
-            --border-label "$BORDER_LABEL" --header "$HEADER" \
+            --border-label "$BORDER_LABEL" --header "$HEADER" --ansi \
             --no-sort --cycle --delimiter='/' --with-nth="$show_nth" --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" \
             --preview "$preview" --preview-window=top,75% || true)
         ;;
     serverless)
         result=$(get_initial_results | fzf \
             --bind "$find_bind" --bind "$tab_bind" --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" --bind "$t_bind" \
-            --border-label "$BORDER_LABEL" --header "$HEADER" --no-sort --cycle --delimiter='/' --with-nth="$show_nth" \
+            --border-label "$BORDER_LABEL" --header "$HEADER" --ansi --no-sort --cycle --delimiter='/' --with-nth="$show_nth" \
             --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" --preview "$dir_preview_cmd {}" || true)
         ;;
     esac
@@ -284,6 +286,9 @@ if [[ "$result" == NEW_SESSION:* ]]; then
 fi
 
 [[ "$result" ]] || exit 0
+
+# Strip session marker prefix (● or spaces) if present
+result=$(echo "$result" | sed -e 's/^● //' -e 's/^  //')
 
 [[ $home_replacer ]] && result=$(echo "$result" | sed -e "s|^~/|$HOME/|")
 
