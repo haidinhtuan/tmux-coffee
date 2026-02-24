@@ -15,6 +15,8 @@ readonly PROMPT='  '
 readonly MARKER=''
 readonly BORDER_LABEL='   tmux-coffee   '
 readonly HEADER='^f 󰉋  ^j 󰔠  ^s 󰝰  ^w 󱂬  ^d 󰗨  ^n 󰐕'
+readonly SESSION_HEADER='^f 󰉋  ^j 󰔠  ^s 󰝰  ^w 󱂬  ^d 󰗨  ^n 󰐕
+  SESSION	  WIN  VPN           DIR                           CMD          LAST ACTIVE'
 
 # home path fix for sed
 home_replacer=""
@@ -59,11 +61,11 @@ preview="target=\$(echo {} | sed -e 's/^● //' -e 's/^  //' | cut -f1); $sessio
 t_bind="ctrl-t:abort"
 tab_bind="tab:down,btab:up"
 list_sessions_cmd="bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-list-sessions.sh"
-session_bind="ctrl-s:change-prompt(  )+reload($list_sessions_cmd)+change-preview-window($preview_position,85%)"
-zoxide_bind="ctrl-j:change-prompt(  )+reload(zoxide query -l | sed -e \"$home_replacer\")+change-preview(eval $dir_preview_cmd {})+change-preview-window(right)"
+session_bind="ctrl-s:change-prompt(  )+reload($list_sessions_cmd)+change-header($SESSION_HEADER)+change-preview-window($preview_position,85%)"
+zoxide_bind="ctrl-j:change-prompt(  )+reload(zoxide query -l | sed -e \"$home_replacer\")+change-header($HEADER)+change-preview(eval $dir_preview_cmd {})+change-preview-window(right)"
 fd_cmd="$(which fd 2>/dev/null || which fdfind 2>/dev/null || echo fd)"
-find_bind="ctrl-f:change-prompt(  )+reload($fd_cmd -H -d $max_depth -t d . $find_path | sed 's|/$||')+change-preview($dir_preview_cmd {})+change-preview-window(right)"
-window_bind="ctrl-w:change-prompt(  )+reload(tmux list-windows -a -F '#{session_name}:#{window_index}')+change-preview($session_preview_cmd {})+change-preview-window($preview_position)"
+find_bind="ctrl-f:change-prompt(  )+reload($fd_cmd -H -d $max_depth -t d . $find_path | sed 's|/$||')+change-header($HEADER)+change-preview($dir_preview_cmd {})+change-preview-window(right)"
+window_bind="ctrl-w:change-prompt(  )+reload(tmux list-windows -a -F '#{session_name}:#{window_index}')+change-header($HEADER)+change-preview($session_preview_cmd {})+change-preview-window($preview_position)"
 
 delete_bind="ctrl-d:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-kill-session.sh \$(echo {} | sed -e 's/^● //' -e 's/^  //' | cut -f1))+reload-sync($list_sessions_cmd)"
 new_session_bind="ctrl-n:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-new-session.sh)+reload-sync($list_sessions_cmd)"
@@ -106,6 +108,13 @@ get_initial_prompt() {
         sessions) echo '  ' ;;
         find) echo '  ' ;;
         *) echo "$PROMPT" ;;
+    esac
+}
+
+get_initial_header() {
+    case "$default_mode" in
+        sessions) echo "$SESSION_HEADER" ;;
+        *) echo "$HEADER" ;;
     esac
 }
 
@@ -247,7 +256,7 @@ else
         result=$(get_initial_results | fzf-tmux \
             --bind "$find_bind" --bind "$session_bind" --bind "$tab_bind" --bind "$window_bind" --bind "$t_bind" \
             --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" \
-            --border-label "$BORDER_LABEL" --header "$HEADER" --ansi --tabstop=24 \
+            --border-label "$BORDER_LABEL" --header "$(get_initial_header)" --ansi --tabstop=24 \
             --no-sort --cycle --delimiter='/' --with-nth="$show_nth" --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" \
             --preview "$preview" --preview-window="$preview_position",75% "$fzf_tmux_options" --layout="$layout" || true)
         ;;
@@ -255,14 +264,14 @@ else
         result=$(get_initial_results | fzf \
             --bind "$find_bind" --bind "$session_bind" --bind "$tab_bind" --bind "$window_bind" --bind "$t_bind" \
             --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" \
-            --border-label "$BORDER_LABEL" --header "$HEADER" --ansi --tabstop=24 \
+            --border-label "$BORDER_LABEL" --header "$(get_initial_header)" --ansi --tabstop=24 \
             --no-sort --cycle --delimiter='/' --with-nth="$show_nth" --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" \
             --preview "$preview" --preview-window=top,75% || true)
         ;;
     serverless)
         result=$(get_initial_results | fzf \
             --bind "$find_bind" --bind "$tab_bind" --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" --bind "$t_bind" \
-            --border-label "$BORDER_LABEL" --header "$HEADER" --ansi --tabstop=24 --no-sort --cycle --delimiter='/' --with-nth="$show_nth" \
+            --border-label "$BORDER_LABEL" --header "$(get_initial_header)" --ansi --tabstop=24 --no-sort --cycle --delimiter='/' --with-nth="$show_nth" \
             --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" --preview "$dir_preview_cmd {}" || true)
         ;;
     esac

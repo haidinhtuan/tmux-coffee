@@ -75,6 +75,7 @@ time_color() {
     fi
 }
 
+
 tmux list-sessions -F '#{session_last_attached}|#{session_name}|#{session_windows}|#{pane_current_path}|#{pane_current_command}|#{session_attached}' 2>/dev/null |
     sort -t'|' -k1 -rn |
 while IFS='|' read -r last_ts name windows pane_path cmd attached; do
