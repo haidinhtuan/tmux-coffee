@@ -2,3 +2,6 @@
 
 # User-specific VPN profiles (contains personal server addresses and credentials)
 vpn-profiles.conf
+
+# Design docs (private)
+docs/plans/
