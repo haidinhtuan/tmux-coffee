@@ -57,17 +57,21 @@ while IFS='|' read -r last_ts name windows pane_path; do
     [[ -z "$vpn" || "$vpn" == "none" ]] && vpn="--"
     [[ ${#vpn} -gt 12 ]] && vpn="${vpn:0:10}.."
 
-    # Working dir (basename, or ~ for $HOME)
+    # Working dir (relative to $HOME, truncate from left if long)
     if [[ "$pane_path" == "$HOME" ]]; then
         dir="~"
+    elif [[ "$pane_path" == "$HOME"/* ]]; then
+        dir="~/${pane_path#$HOME/}"
     else
-        dir=$(basename "$pane_path")
+        dir="$pane_path"
     fi
-    [[ ${#dir} -gt 12 ]] && dir="${dir:0:10}.."
+    if [[ ${#dir} -gt 28 ]]; then
+        dir="..${dir: -26}"
+    fi
 
     # Time
     time_str="$(relative_time "$last_ts")"
 
-    printf "%b%s\t%b%sw  %-12s %-12s %s%b\n" \
+    printf "%b%s\t%b%sw  %-12s %-28s %s%b\n" \
         "$marker" "$name" "$DIM" "$windows" "$vpn" "$dir" "$time_str" "$RESET"
 done
