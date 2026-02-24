@@ -61,7 +61,8 @@ tab_bind="tab:down,btab:up"
 list_sessions_cmd="bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-list-sessions.sh"
 session_bind="ctrl-s:change-prompt(  )+reload($list_sessions_cmd)+change-preview-window($preview_position,85%)"
 zoxide_bind="ctrl-j:change-prompt(  )+reload(zoxide query -l | sed -e \"$home_replacer\")+change-preview(eval $dir_preview_cmd {})+change-preview-window(right)"
-find_bind="ctrl-f:change-prompt(  )+reload(fd -H -d $max_depth -t d . $find_path | sed 's|/$||')+change-preview($dir_preview_cmd {})+change-preview-window(right)"
+fd_cmd="$(which fd 2>/dev/null || which fdfind 2>/dev/null || echo fd)"
+find_bind="ctrl-f:change-prompt(  )+reload($fd_cmd -H -d $max_depth -t d . $find_path | sed 's|/$||')+change-preview($dir_preview_cmd {})+change-preview-window(right)"
 window_bind="ctrl-w:change-prompt(  )+reload(tmux list-windows -a -F '#{session_name}:#{window_index}')+change-preview($session_preview_cmd {})+change-preview-window($preview_position)"
 kill_bind_disabled="ctrl-x:change-prompt(  )+execute-silent(tmux kill-session -t {})+reload-sync(tmux list-sessions -F '#S' && zoxide query -l | sed -e \"$home_replacer\")"
 
@@ -102,7 +103,7 @@ get_fzf_results() {
 get_initial_results() {
     case "$default_mode" in
         sessions) bash "$HOME/.tmux/plugins/tmux-coffee/bin/coffee-list-sessions.sh" ;;
-        find) fd -H -d "$max_depth" -t d . "$find_path" | sed 's|/$||' ;;
+        find) $fd_cmd -H -d "$max_depth" -t d . "$find_path" | sed 's|/$||' ;;
         *) get_fzf_results ;;
     esac
 }
