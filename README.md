@@ -9,7 +9,7 @@ A tmux session manager with VPN-aware session switching, beautiful UI, and enhan
 - **Fuzzy Search**: fzf integration for intuitive session selection
 - **Session Previews**: Visual previews of existing sessions and directory contents
 - **Zoxide Integration**: Directory-based session creation with smart directory jumping
-- **VPN Session Binding**: Associate sessions with VPN profiles (IONOS, UI VPN, or none)
+- **VPN Session Binding**: Associate sessions with configurable VPN profiles
 - **Automatic VPN Switching**: Switching sessions automatically connects the correct VPN
 - **Create Sessions**: Popup dialog to create new sessions with VPN selection (`Ctrl+n`)
 - **Delete Sessions**: Confirmation dialog before deleting sessions (`Ctrl+d`)
@@ -41,7 +41,7 @@ Then press `prefix + I` to install.
 
 Press `Ctrl+n` to open a centered popup:
 1. Type session name (max 30 chars), press `Enter`
-2. Select VPN association (None / IONOS / UI VPN) with arrow keys, press `Enter`
+2. Select VPN profile (from config) with arrow keys, press `Enter`
 3. VPN connects automatically via popup before the session is created
 
 ### VPN Session Switching
@@ -83,6 +83,40 @@ set -g @coffee-bind "t"
 set -g @coffee-alt-bind "C-t"
 ```
 
+## VPN Configuration
+
+VPN profiles are defined in an INI-style config file at `~/.tmux/vpn-profiles.conf` (override with `set -g @coffee-vpn-config /path/to/file`).
+
+### Profile Format
+
+```ini
+[Profile Name]
+connect = command to run in tmux popup to connect
+detect = command that exits 0 when this VPN is active
+disconnect = command to disconnect this VPN
+post_connect = command to run after successful connection (optional)
+popup_width = popup width in columns (default: 60)
+popup_height = popup height in rows (default: 10)
+connect_before_session = true to connect VPN before creating session (default: false)
+```
+
+### Example
+
+```ini
+[Work VPN]
+connect = sudo openconnect vpn.example.com
+detect = pgrep -f openconnect >/dev/null 2>&1
+disconnect = sudo pkill openconnect
+post_connect = tmux set-environment -g SSH_AUTH_SOCK ~/.ssh/agent.sock
+popup_width = 60
+popup_height = 15
+connect_before_session = true
+```
+
+### Graceful Degradation
+
+If no config file exists or it contains no profiles, all VPN features are silently disabled. The plugin works normally for session management without any VPN-related UI or hooks.
+
 ## Requirements
 
 - tmux
@@ -90,10 +124,6 @@ set -g @coffee-alt-bind "C-t"
 - zoxide
 - fd (for directory search)
 - eza (for directory previews)
-
-## Author
-
-**Hai Dinh Tuan** - me@haidinhtuan.de
 
 ## Credits
 
