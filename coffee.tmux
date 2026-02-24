@@ -11,9 +11,9 @@ tmux_option_or_fallback() {
     echo "$option_value"
 }
 
-tmux bind-key "$(tmux_option_or_fallback "@tea-bind" "t")" run-shell "$CURRENT_DIR/bin/tea.sh"
+tmux bind-key "$(tmux_option_or_fallback "@coffee-bind" "t")" run-shell "$CURRENT_DIR/bin/coffee.sh"
 
-ALT_KEY_BIND="$(tmux_option_or_fallback "@tea-alt-bind" "C-t")"
+ALT_KEY_BIND="$(tmux_option_or_fallback "@coffee-alt-bind" "C-t")"
 if [ "$ALT_KEY_BIND" != "false" ]; then
-    tmux bind-key -n "$ALT_KEY_BIND" run-shell "$CURRENT_DIR/bin/tea.sh"
+    tmux bind-key -n "$ALT_KEY_BIND" run-shell "$CURRENT_DIR/bin/coffee.sh"
 fi
