@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# List tmux sessions with metadata (window count, VPN, working dir, last attached)
+# List tmux sessions with rich metadata and color
 # Usage: coffee-list-sessions.sh [--no-current]
 #   --no-current: exclude current session and omit markers (for default mixed view)
 
@@ -19,11 +19,18 @@ if [[ -f "$CONFIG_FILE" ]]; then
 fi
 
 # Colors
-GREEN='\033[1;32m'
+BOLD='\033[1m'
 DIM='\033[2m'
+GREEN='\033[32m'
+BGREEN='\033[1;32m'
+CYAN='\033[36m'
+BLUE='\033[34m'
+MAGENTA='\033[35m'
+YELLOW='\033[33m'
+RED='\033[31m'
 RESET='\033[0m'
 
-# Relative time from epoch timestamp (e.g., "2h 15m ago", "3d 4h ago")
+# Relative time from epoch timestamp
 relative_time() {
     local ts=$1 now diff
     now=$(date +%s)
@@ -52,16 +59,32 @@ relative_time() {
     fi
 }
 
-tmux list-sessions -F '#{session_last_attached}|#{session_name}|#{session_windows}|#{pane_current_path}' 2>/dev/null |
+# Time color based on recency
+time_color() {
+    local ts=$1 now diff
+    now=$(date +%s)
+    diff=$((now - ts))
+    if (( diff < 300 )); then
+        echo "$GREEN"
+    elif (( diff < 3600 )); then
+        echo "$YELLOW"
+    elif (( diff < 86400 )); then
+        echo "$DIM"
+    else
+        echo "$RED"
+    fi
+}
+
+tmux list-sessions -F '#{session_last_attached}|#{session_name}|#{session_windows}|#{pane_current_path}|#{pane_current_command}|#{session_attached}' 2>/dev/null |
     sort -t'|' -k1 -rn |
-while IFS='|' read -r last_ts name windows pane_path; do
+while IFS='|' read -r last_ts name windows pane_path cmd attached; do
     # Skip current session if --no-current
     [[ "$NO_CURRENT" == true && "$name" == "$CURRENT" ]] && continue
 
     # Marker
     if [[ "$NO_CURRENT" == false ]]; then
         if [[ "$name" == "$CURRENT" ]]; then
-            marker="${GREEN}●${RESET} "
+            marker="${BGREEN}●${RESET} "
         else
             marker="  "
         fi
@@ -71,7 +94,7 @@ while IFS='|' read -r last_ts name windows pane_path; do
 
     # VPN
     vpn="${VPN_MAP[$name]:-}"
-    [[ -z "$vpn" || "$vpn" == "none" ]] && vpn="--"
+    [[ -z "$vpn" || "$vpn" == "none" ]] && vpn=""
     [[ ${#vpn} -gt 12 ]] && vpn="${vpn:0:10}.."
 
     # Working dir (relative to $HOME, truncate from left if long)
@@ -82,13 +105,37 @@ while IFS='|' read -r last_ts name windows pane_path; do
     else
         dir="$pane_path"
     fi
-    if [[ ${#dir} -gt 28 ]]; then
-        dir="..${dir: -26}"
-    fi
+    [[ ${#dir} -gt 28 ]] && dir="..${dir: -26}"
 
     # Time
     time_str="$(relative_time "$last_ts")"
+    tc="$(time_color "$last_ts")"
 
-    printf "%b%s\t%b%sw  %-12s %-28s %s%b\n" \
-        "$marker" "$name" "$DIM" "$windows" "$vpn" "$dir" "$time_str" "$RESET"
+    # Command (truncate)
+    [[ ${#cmd} -gt 10 ]] && cmd="${cmd:0:8}.."
+
+    # Attached indicator (other clients)
+    if [[ "$attached" -gt 0 && "$name" != "$CURRENT" ]]; then
+        attach_icon="${GREEN} ${RESET}"
+    elif [[ "$attached" -gt 1 ]]; then
+        attach_icon="${GREEN} ${RESET}"
+    else
+        attach_icon="  "
+    fi
+
+    # Build colored segments (pad visible text inside color codes for alignment)
+    win_seg="${CYAN}$(printf ' %s' "$windows")${RESET}"
+
+    if [[ -n "$vpn" ]]; then
+        vpn_seg="${GREEN}$(printf '󰖟 %-12s' "$vpn")${RESET}"
+    else
+        vpn_seg="${DIM}$(printf '  %-12s' '--')${RESET}"
+    fi
+
+    dir_seg="${BLUE}$(printf '󰉋 %-28s' "$dir")${RESET}"
+    cmd_seg="${MAGENTA}$(printf ' %-10s' "$cmd")${RESET}"
+    time_seg="${tc}$(printf ' %s' "$time_str")${RESET}"
+
+    printf "%b%s%b\t%b  %b  %b  %b  %b\n" \
+        "$marker" "$name" "$attach_icon" "$win_seg" "$vpn_seg" "$dir_seg" "$cmd_seg" "$time_seg"
 done
