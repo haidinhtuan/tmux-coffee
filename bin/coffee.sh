@@ -15,9 +15,11 @@ readonly PROMPT='  '
 readonly MARKER=''
 readonly BORDER_LABEL='   tmux-coffee   '
 readonly HEADER='^f 󰉋  ^j 󰔠  ^s 󰝰  ^w 󱂬  ^d 󰗨  ^n 󰐕'
-readonly SESSION_HEADER='^f 󰉋  ^j 󰔠  ^s 󰝰  ^w 󱂬  ^d 󰗨  ^n 󰐕
-  SESSION	  WIN  VPN           DIR                           CMD          LAST ACTIVE'
-
+# Session column header — uses same icons and printf widths as coffee-list-sessions.sh
+SESSION_COLS=$(printf '  %s\t   %s   %s   %s   %s   %s' \
+    'SESSION' "$(printf ' %-3s' '#')" "$(printf '󰖟 %-12s' 'VPN')" "$(printf '󰉋 %-28s' 'DIR')" "$(printf ' %-10s' 'CMD')" "$(printf ' %s' 'LAST ACTIVE')")
+readonly SESSION_HEADER="$HEADER
+$SESSION_COLS"
 # home path fix for sed
 home_replacer=""
 fzf_tmux_options=${FZF_TMUX_OPTS:-"$DEFAULT_FZF_TMUX_OPTIONS"}
