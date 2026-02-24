@@ -23,15 +23,32 @@ GREEN='\033[1;32m'
 DIM='\033[2m'
 RESET='\033[0m'
 
-# Relative time from epoch timestamp
+# Relative time from epoch timestamp (e.g., "2h 15m ago", "3d 4h ago")
 relative_time() {
     local ts=$1 now diff
     now=$(date +%s)
     diff=$((now - ts))
-    if (( diff < 60 )); then echo "<1m"
-    elif (( diff < 3600 )); then echo "$((diff / 60))m"
-    elif (( diff < 86400 )); then echo "$((diff / 3600))h"
-    else echo "$((diff / 86400))d"
+    if (( diff < 60 )); then
+        echo "<1m ago"
+    elif (( diff < 3600 )); then
+        local mins=$((diff / 60))
+        echo "${mins}m ago"
+    elif (( diff < 86400 )); then
+        local hrs=$((diff / 3600))
+        local mins=$(( (diff % 3600) / 60 ))
+        if (( mins > 0 )); then
+            echo "${hrs}h ${mins}m ago"
+        else
+            echo "${hrs}h ago"
+        fi
+    else
+        local days=$((diff / 86400))
+        local hrs=$(( (diff % 86400) / 3600 ))
+        if (( hrs > 0 )); then
+            echo "${days}d ${hrs}h ago"
+        else
+            echo "${days}d ago"
+        fi
     fi
 }
 
