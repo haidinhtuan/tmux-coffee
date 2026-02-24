@@ -147,7 +147,11 @@ create_and_attach_session() {
     fi
 
     case $run_type in
-    attached) tmux switch-client -t "$session_name" ;;
+    attached)
+        tmux switch-client -t "$session_name"
+        # Trigger VPN switch after session change (use run-shell for proper tmux context)
+        tmux run-shell -b "~/.tmux/scripts/vpn-switch.sh '$session_name'"
+        ;;
     detached | serverless) tmux attach -t "$session_name" ;;
     esac
 }
