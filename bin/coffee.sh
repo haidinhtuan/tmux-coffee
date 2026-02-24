@@ -297,4 +297,21 @@ result=$(echo "$result" | sed -e 's/^● //' -e 's/^  //')
 
 [[ $home_replacer ]] && result=$(echo "$result" | sed -e "s|^~/|$HOME/|")
 
-create_and_attach_session "$result"
+if [[ -d "$result" ]]; then
+    # Directory selected — open new session popup with name + VPN
+    zoxide add "$result" &>/dev/null
+    rm -f /tmp/tmux-coffee-last-created
+    tmux display-popup -E -w 50 -h 20 \
+        "bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-new-session.sh '$result'"
+    # Switch to the newly created session
+    if [[ -f /tmp/tmux-coffee-last-created ]]; then
+        session_name=$(cat /tmp/tmux-coffee-last-created)
+        rm -f /tmp/tmux-coffee-last-created
+        case $run_type in
+            attached) tmux switch-client -t "$session_name" ;;
+            detached | serverless) tmux attach -t "$session_name" ;;
+        esac
+    fi
+else
+    create_and_attach_session "$result"
+fi
