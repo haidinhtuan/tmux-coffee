@@ -10,6 +10,22 @@ source "$SCRIPT_DIR/vpn-config.sh"
 RESTORING=$(tmux show-environment -g @vpn_restoring 2>/dev/null | grep -v '^-')
 [[ -n "$RESTORING" ]] && exit 0
 
+# Prevent duplicate popups: only one vpn-switch at a time
+LOCK_FILE="/tmp/tmux-vpn-switch.lock"
+if ! mkdir "$LOCK_FILE" 2>/dev/null; then
+    # Another vpn-switch is already running — check if it's stale (>30s)
+    if [[ -d "$LOCK_FILE" ]]; then
+        lock_age=$(( $(date +%s) - $(stat -c %Y "$LOCK_FILE" 2>/dev/null || echo 0) ))
+        if (( lock_age > 30 )); then
+            rmdir "$LOCK_FILE" 2>/dev/null
+            mkdir "$LOCK_FILE" 2>/dev/null || exit 0
+        else
+            exit 0
+        fi
+    fi
+fi
+trap 'rmdir "$LOCK_FILE" 2>/dev/null' EXIT
+
 SESSION_NAME="${1:-$(tmux display-message -p '#S')}"
 SESSION_VPN=$(tmux show-environment -t "$SESSION_NAME" SESSION_VPN 2>/dev/null | cut -d= -f2)
 CURRENT_VPN=$(vpn_detect_active)

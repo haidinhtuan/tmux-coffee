@@ -30,6 +30,7 @@ done < "$CONFIG_FILE"
 # Step 2: Clean up orphaned entries
 "$SCRIPT_DIR/vpn-cleanup.sh"
 
-# Step 3: Clear the restoring flag, then connect VPN for the current session
+# Step 3: Clear the restoring flag
+# VPN connection is handled by the client-session-changed hook (vpn-switch.sh)
+# which fires naturally when the client lands on the restored session
 tmux set-environment -gu @vpn_restoring
-"$SCRIPT_DIR/vpn-switch.sh"
