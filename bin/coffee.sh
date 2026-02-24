@@ -150,7 +150,7 @@ create_and_attach_session() {
     attached)
         tmux switch-client -t "$session_name"
         # Trigger VPN switch after session change (use run-shell for proper tmux context)
-        tmux run-shell -b "~/.tmux/scripts/vpn-switch.sh '$session_name'"
+        tmux run-shell -b "$HOME/.tmux/plugins/tmux-coffee/bin/vpn-switch.sh '$session_name'"
         ;;
     detached | serverless) tmux attach -t "$session_name" ;;
     esac
