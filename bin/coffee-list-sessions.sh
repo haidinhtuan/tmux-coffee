@@ -125,7 +125,7 @@ while IFS='|' read -r last_ts name windows pane_path cmd attached; do
     fi
 
     # Build colored segments (pad visible text inside color codes for alignment)
-    win_seg="${CYAN}$(printf ' %s' "$windows")${RESET}"
+    win_seg="${CYAN}$(printf ' %-2s' "$windows")${RESET}"
 
     if [[ -n "$vpn" ]]; then
         vpn_seg="${GREEN}$(printf '󰖟 %-12s' "$vpn")${RESET}"
@@ -137,6 +137,6 @@ while IFS='|' read -r last_ts name windows pane_path cmd attached; do
     cmd_seg="${MAGENTA}$(printf ' %-10s' "$cmd")${RESET}"
     time_seg="${tc}$(printf ' %s' "$time_str")${RESET}"
 
-    printf "%b%s%b\t%b  %b  %b  %b  %b\n" \
+    printf "%b%s\t%b %b  %b  %b  %b  %b\n" \
         "$marker" "$name" "$attach_icon" "$win_seg" "$vpn_seg" "$dir_seg" "$cmd_seg" "$time_seg"
 done
