@@ -54,7 +54,8 @@ while IFS='|' read -r last_ts name windows pane_path; do
 
     # VPN
     vpn="${VPN_MAP[$name]:-}"
-    [[ -z "$vpn" || "$vpn" == "none" ]] && vpn="─"
+    [[ -z "$vpn" || "$vpn" == "none" ]] && vpn="--"
+    [[ ${#vpn} -gt 12 ]] && vpn="${vpn:0:10}.."
 
     # Working dir (basename, or ~ for $HOME)
     if [[ "$pane_path" == "$HOME" ]]; then
@@ -62,6 +63,7 @@ while IFS='|' read -r last_ts name windows pane_path; do
     else
         dir=$(basename "$pane_path")
     fi
+    [[ ${#dir} -gt 12 ]] && dir="${dir:0:10}.."
 
     # Time
     time_str="$(relative_time "$last_ts")"
