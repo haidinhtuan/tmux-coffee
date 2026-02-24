@@ -7,6 +7,9 @@ cleanup() {
 }
 trap cleanup INT TERM
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/vpn-config.sh"
+
 # Get terminal size
 rows=$(tput lines)
 cols=$(tput cols)
@@ -119,17 +122,39 @@ if tmux has-session -t "$session_name" 2>/dev/null; then
     cleanup
 fi
 
+# Get default command from tmux option
+default_command=$(tmux show-option -gqv @coffee-default-command 2>/dev/null)
+
+# Helper: create the detached session
+create_session() {
+    if [[ -n "$default_command" ]]; then
+        tmux new-session -d -s "$session_name" -c "$HOME" "$default_command"
+    else
+        tmux new-session -d -s "$session_name" -c "$HOME"
+    fi
+}
+
 # ============ VPN SELECTION ============
+
+if [[ ${#VPN_NAMES[@]} -eq 0 ]]; then
+    # No VPN profiles — just create session
+    create_session
+    tmux set-environment -t "$session_name" SESSION_VPN "none"
+    "$SCRIPT_DIR/vpn-save.sh" "$session_name" "none"
+    exit 0
+fi
+
 tput civis
 
 # VPN options
-vpn_options=("None" "IONOS" "UI VPN")
+vpn_options=("None" "${VPN_NAMES[@]}")
 selected=0
 
 # Draw VPN selection box
 draw_vpn_box() {
     clear
-    local vpn_start_row=$(( (rows - 7) / 2 ))
+    local vpn_box_height=$((4 + ${#vpn_options[@]}))
+    local vpn_start_row=$(( (rows - vpn_box_height) / 2 ))
 
     move $vpn_start_row $start_col
     printf "${BLUE}╭──────────────────────────────────────╮${RESET}"
@@ -147,9 +172,9 @@ draw_vpn_box() {
         fi
     done
 
-    move $((vpn_start_row + 6)) $start_col
+    move $((vpn_start_row + 3 + ${#vpn_options[@]})) $start_col
     printf "${BLUE}╰──────────────────────────────────────╯${RESET}"
-    move $((vpn_start_row + 7)) $start_col
+    move $((vpn_start_row + 4 + ${#vpn_options[@]})) $start_col
     printf "${DIM}  ↑/↓: navigate  Enter: select  Esc: cancel${RESET}"
 }
 
@@ -188,42 +213,21 @@ selected_vpn="${vpn_options[$selected]}"
 tput cnorm
 clear
 
-# Get default command from tmux option
-default_command=$(tmux show-option -gqv @coffee-default-command 2>/dev/null)
-
-# Helper: create the detached session
-create_session() {
-    if [[ -n "$default_command" ]]; then
-        tmux new-session -d -s "$session_name" -c "$HOME" "$default_command"
+if [[ "$selected_vpn" == "None" ]]; then
+    create_session
+    tmux set-environment -t "$session_name" SESSION_VPN "none"
+    "$SCRIPT_DIR/vpn-save.sh" "$session_name" "none"
+else
+    if [[ "${VPN_CONNECT_BEFORE[$selected_vpn]}" == "true" ]]; then
+        # Connect VPN BEFORE creating session (so shell picks up correct env)
+        vpn_popup_connect "$selected_vpn"
+        create_session
+        tmux set-environment -t "$session_name" SESSION_VPN "$selected_vpn"
+        "$SCRIPT_DIR/vpn-save.sh" "$session_name" "$selected_vpn"
     else
-        tmux new-session -d -s "$session_name" -c "$HOME"
+        create_session
+        tmux set-environment -t "$session_name" SESSION_VPN "$selected_vpn"
+        "$SCRIPT_DIR/vpn-save.sh" "$session_name" "$selected_vpn"
+        vpn_popup_connect "$selected_vpn"
     fi
-}
-
-# Set VPN environment for the session and save to persistent config
-case "$selected_vpn" in
-    "IONOS")
-        create_session
-        tmux set-environment -t "$session_name" SESSION_VPN "IONOS"
-        ~/.tmux/scripts/vpn-save.sh "$session_name" "IONOS"
-        tmux display-popup -E -w 60 -h 10 -b rounded -T " 󰖂 Connecting to IONOS " \
-            "zsh -ic 'vpn_ionos; sleep 2'"
-        ;;
-    "UI VPN")
-        # Run VPN/OSUM popup BEFORE creating session so the default window's
-        # shell picks up the correct SSH_AUTH_SOCK from tmux global environment
-        tmux display-popup -E -w 60 -h 15 -b rounded -T " 󰖂 Connecting to UI VPN " \
-            'zsh -ic "vpn_ui; sleep 2"'
-        # Popup doesn't have $TMUX set, so vpn_ui can't set global env - do it here
-        tmux set-environment -g SSH_AUTH_SOCK ~/.ssh/ssh_auth_sock
-        # NOW create the session - default window's .zshrc will read the correct env
-        create_session
-        tmux set-environment -t "$session_name" SESSION_VPN "UI VPN"
-        ~/.tmux/scripts/vpn-save.sh "$session_name" "UI VPN"
-        ;;
-    *)
-        create_session
-        tmux set-environment -t "$session_name" SESSION_VPN "none"
-        ~/.tmux/scripts/vpn-save.sh "$session_name" "none"
-        ;;
-esac
+fi
