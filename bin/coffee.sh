@@ -301,8 +301,9 @@ if [[ -d "$result" ]]; then
     # Directory selected — open new session popup with name + VPN
     zoxide add "$result" &>/dev/null
     rm -f /tmp/tmux-coffee-last-created
+    escaped_result=$(printf '%q' "$result")
     tmux display-popup -E -w 50 -h 20 \
-        "bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-new-session.sh '$result'"
+        "bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-new-session.sh $escaped_result"
     # Switch to the newly created session
     if [[ -f /tmp/tmux-coffee-last-created ]]; then
         session_name=$(cat /tmp/tmux-coffee-last-created)
