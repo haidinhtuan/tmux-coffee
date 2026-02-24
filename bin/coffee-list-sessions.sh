@@ -128,12 +128,12 @@ while IFS='|' read -r last_ts name windows pane_path cmd attached; do
     win_seg="${CYAN}$(printf ' %-2s' "$windows")${RESET}"
 
     if [[ -n "$vpn" ]]; then
-        vpn_seg="${GREEN}$(printf '󰖟 %-12s' "$vpn")${RESET}"
+        vpn_seg="${GREEN}$(printf '%-12s' "$vpn")${RESET}"
     else
-        vpn_seg="${DIM}$(printf '  %-12s' '--')${RESET}"
+        vpn_seg="${DIM}$(printf '%-12s' '--')${RESET}"
     fi
 
-    dir_seg="${BLUE}$(printf '󰉋 %-28s' "$dir")${RESET}"
+    dir_seg="${BLUE}$(printf '%-28s' "$dir")${RESET}"
     cmd_seg="${MAGENTA}$(printf ' %-10s' "$cmd")${RESET}"
     time_seg="${tc}$(printf ' %s' "$time_str")${RESET}"
 

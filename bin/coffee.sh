@@ -16,9 +16,8 @@ readonly MARKER=''
 readonly BORDER_LABEL='   tmux-coffee   '
 readonly HEADER='^f 󰉋  ^j 󰔠  ^s 󰝰  ^w 󱂬  ^d 󰗨  ^n 󰐕'
 # Session column header — must match printf format in coffee-list-sessions.sh exactly
-# Data format after tab: "{attach:2} {icon %-2s}  {icon %-12s}  {icon %-28s}  {icon %-10s}  {icon %s}"
 SESSION_COLS=$(printf '  %s\t   %s  %s  %s  %s  %s' \
-    'SESSION' "$(printf ' %-2s' '#')" "$(printf '󰖟 %-12s' 'VPN')" "$(printf '󰉋 %-28s' 'DIR')" "$(printf ' %-10s' 'CMD')" "$(printf ' %s' 'LAST ACTIVE')")
+    'SESSION' "$(printf ' %-2s' '#')" "$(printf '%-12s' 'VPN')" "$(printf '%-28s' 'DIR')" "$(printf ' %-10s' 'CMD')" "$(printf ' %s' 'LAST ACTIVE')")
 readonly SESSION_HEADER="$HEADER
 $SESSION_COLS"
 # home path fix for sed
