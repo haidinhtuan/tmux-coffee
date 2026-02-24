@@ -9,6 +9,7 @@ trap cleanup INT TERM
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/vpn-config.sh"
+target_dir="$1"
 
 # Get terminal size
 rows=$(tput lines)
@@ -56,8 +57,13 @@ move $((start_row + 3)) $input_col
 tput cnorm
 
 # Read with support for basic editing
-session_name=""
-cursor_pos=0
+if [[ -n "$target_dir" ]]; then
+    session_name=$(basename "$target_dir" | tr ' .:' '_')
+    cursor_pos=${#session_name}
+else
+    session_name=""
+    cursor_pos=0
+fi
 max_len=28
 
 redraw_input() {
@@ -65,6 +71,7 @@ redraw_input() {
     printf "%-28s" "$session_name"
     move $((start_row + 3)) $((input_col + cursor_pos))
 }
+[[ -n "$session_name" ]] && redraw_input
 
 while IFS= read -r -s -n1 char; do
     # Escape key
@@ -127,10 +134,15 @@ default_command=$(tmux show-option -gqv @coffee-default-command 2>/dev/null)
 
 # Helper: create the detached session
 create_session() {
+    local session_dir="${target_dir:-$HOME}"
     if [[ -n "$default_command" ]]; then
-        tmux new-session -d -s "$session_name" -c "$HOME" "$default_command"
+        tmux new-session -d -s "$session_name" -c "$session_dir" "$default_command"
     else
-        tmux new-session -d -s "$session_name" -c "$HOME"
+        tmux new-session -d -s "$session_name" -c "$session_dir"
+    fi
+    # Signal session name to caller (coffee.sh reads this after popup closes)
+    if [[ -n "$target_dir" ]]; then
+        echo "$session_name" > /tmp/tmux-coffee-last-created
     fi
 }
 
