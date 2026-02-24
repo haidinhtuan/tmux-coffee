@@ -2,14 +2,16 @@
 
 > Forked from [tmux-tea](https://github.com/2kabhishek/tmux-tea) by [2kabhishek](https://github.com/2kabhishek)
 
-A tmux session manager with a beautiful UI and enhanced session management features.
+A tmux session manager with VPN-aware session switching, beautiful UI, and enhanced session management.
 
 ## Features
 
 - **Fuzzy Search**: fzf integration for intuitive session selection
 - **Session Previews**: Visual previews of existing sessions and directory contents
 - **Zoxide Integration**: Directory-based session creation with smart directory jumping
-- **Create Sessions**: Beautiful popup dialog to create new sessions (`Ctrl+n`)
+- **VPN Session Binding**: Associate sessions with VPN profiles (IONOS, UI VPN, or none)
+- **Automatic VPN Switching**: Switching sessions automatically connects the correct VPN
+- **Create Sessions**: Popup dialog to create new sessions with VPN selection (`Ctrl+n`)
 - **Delete Sessions**: Confirmation dialog before deleting sessions (`Ctrl+d`)
 - **Default Mode**: Start in sessions mode by default
 
@@ -31,17 +33,25 @@ Then press `prefix + I` to install.
 | `Ctrl+f` | Directory mode (find directories) |
 | `Ctrl+j` | Zoxide mode (recent directories) |
 | `Ctrl+w` | Window mode (existing windows) |
-| `Ctrl+n` | **Create new session** (with popup dialog) |
+| `Ctrl+n` | **Create new session** (with VPN selection) |
 | `Ctrl+d` | **Delete session** (with confirmation) |
 | `Ctrl+t` | Toggle / exit |
 
 ### Create Session Dialog
 
 Press `Ctrl+n` to open a centered popup:
-- Type session name (max 30 chars)
-- Press `Enter` to create
-- Press `Esc` to cancel
-- Arrow keys and backspace supported
+1. Type session name (max 30 chars), press `Enter`
+2. Select VPN association (None / IONOS / UI VPN) with arrow keys, press `Enter`
+3. VPN connects automatically via popup before the session is created
+
+### VPN Session Switching
+
+When you switch to a session, `vpn-switch.sh` runs automatically to:
+- Connect the session's associated VPN if not already active
+- Disconnect the current VPN if switching to a different one
+- Skip switching if already on the correct VPN
+
+VPN bindings are persisted in `~/.tmux/vpn-sessions.conf` and restored across tmux restarts.
 
 ### Delete Session Dialog
 
@@ -65,6 +75,12 @@ set -g @coffee-find-path "$HOME/Projects"
 
 # Preview position: "top", "bottom", "left", "right"
 set -g @coffee-preview-position "top"
+
+# Keybinding to toggle coffee (default: "t")
+set -g @coffee-bind "t"
+
+# Alt keybinding (default: "C-t", set to "false" to disable)
+set -g @coffee-alt-bind "C-t"
 ```
 
 ## Requirements
