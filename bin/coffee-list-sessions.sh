@@ -106,7 +106,7 @@ while IFS='|' read -r last_ts name windows pane_path cmd attached; do
     else
         dir="$pane_path"
     fi
-    [[ ${#dir} -gt 28 ]] && dir="..${dir: -26}"
+    [[ ${#dir} -gt 24 ]] && dir="..${dir: -22}"
 
     # Time
     time_str="$(relative_time "$last_ts")"
@@ -133,10 +133,12 @@ while IFS='|' read -r last_ts name windows pane_path cmd attached; do
         vpn_seg="${DIM}$(printf '%-12s' '--')${RESET}"
     fi
 
-    dir_seg="${BLUE}$(printf '%-28s' "$dir")${RESET}"
+    dir_seg="${BLUE}$(printf '%-24s' "$dir")${RESET}"
     cmd_seg="${MAGENTA}$(printf ' %-10s' "$cmd")${RESET}"
     time_seg="${tc}$(printf ' %s' "$time_str")${RESET}"
 
+    # Truncate session name to fit column
+    [[ ${#name} -gt 18 ]] && name="${name:0:16}.."
     printf "%b%s\t%b %b  %b  %b  %b  %b\n" \
         "$marker" "$name" "$attach_icon" "$win_seg" "$vpn_seg" "$dir_seg" "$cmd_seg" "$time_seg"
 done
