@@ -57,13 +57,13 @@ default_mode=$(get_tmux_option "@coffee-default-mode" "$DEFAULT_MODE")
 
 session_preview_cmd="tmux capture-pane -ep -t"
 dir_preview_cmd="$(which eza) ${eza_options}"
-# Strip session marker prefix before preview
-preview="target=\$(echo {} | sed -e 's/^● //' -e 's/^  //' | cut -f1); $session_preview_cmd \"\$target\" 2>/dev/null || eval $dir_preview_cmd \"\$target\""
+# Strip ANSI codes, then session marker prefix before preview
+preview="target=\$(echo {} | sed 's/\x1b\[[0-9;]*m//g' | sed -e 's/^● //' -e 's/^  //' | cut -f1 | sed 's/[[:space:]]*$//'); $session_preview_cmd \"\$target\" 2>/dev/null || eval $dir_preview_cmd \"\$target\""
 
 t_bind="ctrl-t:abort"
 tab_bind="tab:down,btab:up"
 list_sessions_cmd="bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-list-sessions.sh"
-session_bind="ctrl-s:change-prompt(  )+reload($list_sessions_cmd)+change-header($SESSION_HEADER)+change-preview-window($preview_position,85%)"
+session_bind="ctrl-s:change-prompt(  )+reload($list_sessions_cmd)+change-header($SESSION_HEADER)+change-preview(target=\$(echo {} | sed 's/\x1b\[[0-9;]*m//g' | sed -e 's/^● //' -e 's/^  //' | cut -f1 | sed 's/[[:space:]]*$//'); $session_preview_cmd \"\$target\" 2>/dev/null || eval $dir_preview_cmd \"\$target\")+change-preview-window($preview_position,85%)"
 zoxide_bind="ctrl-j:change-prompt(  )+reload(zoxide query -l | sed -e \"$home_replacer\")+change-header($HEADER)+change-preview(eval $dir_preview_cmd {})+change-preview-window(right)"
 fd_cmd="$(which fd 2>/dev/null || which fdfind 2>/dev/null || echo fd)"
 find_bind="ctrl-f:change-prompt(  )+reload($fd_cmd -H -d $max_depth -t d . $find_path | sed 's|/$||')+change-header($HEADER)+change-preview($dir_preview_cmd {})+change-preview-window(right)"
