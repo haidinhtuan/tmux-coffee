@@ -14,10 +14,10 @@ readonly DEFAULT_MODE="zoxide"
 readonly PROMPT='  '
 readonly MARKER=''
 readonly BORDER_LABEL='   tmux-coffee   '
-readonly HEADER='^f 󰉋  ^j 󰔠  ^s 󰝰  ^w 󱂬  ^d 󰗨  ^n 󰐕'
+readonly HEADER='^f 󰉋  ^j 󰔠  ^s 󰝰  ^w 󱂬  ^d 󰗨  ^n 󰐕  ^r 󰏫'
 # Session column header — must match printf format in coffee-list-sessions.sh exactly
-SESSION_COLS=$(printf '  %s\t   %s  %s  %s  %s  %s' \
-    'SESSION' "$(printf ' %-2s' '#')" "$(printf '%-12s' 'VPN')" "$(printf '%-28s' 'DIR')" "$(printf ' %-10s' 'CMD')" "$(printf ' %s' 'LAST ACTIVE')")
+SESSION_COLS=$(printf '  %s\t  %s  %s  %s  %s  %s' \
+    'SESSION' "$(printf ' %-2s' '#')" "$(printf '%-12s' 'VPN')" "$(printf '%-24s' 'DIR')" "$(printf ' %-10s' 'CMD')" "$(printf ' %s' 'LAST ACTIVE')")
 readonly SESSION_HEADER="$HEADER
 $SESSION_COLS"
 # home path fix for sed
@@ -71,6 +71,7 @@ window_bind="ctrl-w:change-prompt(  )+reload(tmux list-windows -a -F '#{se
 
 delete_bind="ctrl-d:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-kill-session.sh \$(echo {} | sed -e 's/^● //' -e 's/^  //' | cut -f1))+reload-sync($list_sessions_cmd)"
 new_session_bind="ctrl-n:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-new-session.sh)+reload-sync($list_sessions_cmd)"
+rename_bind="ctrl-r:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-rename-session.sh \$(echo {} | sed -e 's/^● //' -e 's/^  //' | cut -f1))+reload-sync($list_sessions_cmd)"
 
 # determine if the tmux server is running
 tmux_running=1
@@ -188,6 +189,7 @@ KEYBINDINGS (Interactive mode):
     Ctrl+w    Window mode (existing windows)
     Ctrl+d    Delete session (with confirmation)
     Ctrl+n    New session (name + VPN popup)
+    Ctrl+r    Rename session
     Ctrl+t    Toggle coffee / exit
 
 For more information, see: https://github.com/2kabhishek/tmux-coffee
@@ -257,7 +259,7 @@ else
     attached)
         result=$(get_initial_results | fzf-tmux \
             --bind "$find_bind" --bind "$session_bind" --bind "$tab_bind" --bind "$window_bind" --bind "$t_bind" \
-            --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" \
+            --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" --bind "$rename_bind" \
             --border-label "$BORDER_LABEL" --header "$(get_initial_header)" --ansi --tabstop=24 \
             --no-sort --cycle --delimiter='/' --with-nth="$show_nth" --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" \
             --preview "$preview" --preview-window="$preview_position",75% "$fzf_tmux_options" --layout="$layout" || true)
@@ -265,14 +267,14 @@ else
     detached)
         result=$(get_initial_results | fzf \
             --bind "$find_bind" --bind "$session_bind" --bind "$tab_bind" --bind "$window_bind" --bind "$t_bind" \
-            --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" \
+            --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" --bind "$rename_bind" \
             --border-label "$BORDER_LABEL" --header "$(get_initial_header)" --ansi --tabstop=24 \
             --no-sort --cycle --delimiter='/' --with-nth="$show_nth" --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" \
             --preview "$preview" --preview-window=top,75% || true)
         ;;
     serverless)
         result=$(get_initial_results | fzf \
-            --bind "$find_bind" --bind "$tab_bind" --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" --bind "$t_bind" \
+            --bind "$find_bind" --bind "$tab_bind" --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" --bind "$rename_bind" --bind "$t_bind" \
             --border-label "$BORDER_LABEL" --header "$(get_initial_header)" --ansi --tabstop=24 --no-sort --cycle --delimiter='/' --with-nth="$show_nth" \
             --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" --preview "$dir_preview_cmd {}" || true)
         ;;
