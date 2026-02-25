@@ -5,7 +5,10 @@
 # This script ONLY restores environment variables.
 # VPN connection and OSUM are handled by vpn-switch.sh on manual session switch.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve symlinks so SCRIPT_DIR always points to the real bin/ directory
+_self="${BASH_SOURCE[0]}"
+[[ -L "$_self" ]] && _self="$(readlink -f "$_self")"
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
 source "$SCRIPT_DIR/vpn-config.sh"
 
 CONFIG_FILE="$HOME/.tmux/vpn-sessions.conf"
