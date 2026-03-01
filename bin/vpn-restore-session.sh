@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
-# Restore VPN mapping for a single session when it's created
-# Called by session-created hook and works for both new and restored sessions
 #
-# This script ONLY restores environment variables.
-# VPN connection and OSUM are handled by vpn-switch.sh on manual session switch.
+# vpn-restore-session.sh — Restore VPN env var for a single session
+#
+# Hook:    session-created (set in coffee.tmux, runs in background with -b)
+# Args:    $1 = session name (from #{hook_session_name})
+# Flow:
+#   1. Look up session name in ~/.tmux/vpn-sessions.conf
+#   2. If found, set SESSION_VPN env var in the session
+#   3. Apply post_connect env vars (e.g. SSH_AUTH_SOCK) per-session
+#
+# Does NOT connect VPN — that happens via vpn-switch.sh when you switch to it.
+# Works for both new sessions and sessions restored by tmux-resurrect.
 
 # Resolve symlinks so SCRIPT_DIR always points to the real bin/ directory
 _self="${BASH_SOURCE[0]}"

@@ -1,4 +1,17 @@
 #!/usr/bin/env bash
+#
+# vpn-switch.sh — Auto-switch VPN when user changes tmux session
+#
+# Hook:    client-session-changed (set in coffee.tmux)
+# Args:    $1 = session name (from #{session_name})
+#          $2 = --post-restore (optional, from vpn-restore.sh after resurrect)
+# Flow:
+#   1. Skip if restore in progress (@vpn_restoring) or within cooldown window
+#   2. Acquire lock to prevent concurrent VPN switches
+#   3. Read SESSION_VPN env var from the target session
+#   4. Compare with currently active VPN (via vpn_detect_active)
+#   5. If different: disconnect old VPN, wait 0.3s, connect new via popup
+#
 
 # Resolve symlinks so SCRIPT_DIR always points to the real bin/ directory
 _self="${BASH_SOURCE[0]}"
@@ -32,18 +45,22 @@ fi
 # Prevent duplicate popups: only one vpn-switch at a time
 LOCK_FILE="/tmp/tmux-vpn-switch.lock"
 if ! mkdir "$LOCK_FILE" 2>/dev/null; then
-    # Another vpn-switch is already running — check if it's stale (>30s)
     if [[ -d "$LOCK_FILE" ]]; then
-        lock_age=$(( $(date +%s) - $(stat -c %Y "$LOCK_FILE" 2>/dev/null || echo 0) ))
-        if (( lock_age > 30 )); then
-            rmdir "$LOCK_FILE" 2>/dev/null
-            mkdir "$LOCK_FILE" 2>/dev/null || exit 0
-        else
+        # Check if lock holder is still alive
+        _lock_pid=""
+        [[ -f "$LOCK_FILE/pid" ]] && _lock_pid=$(cat "$LOCK_FILE/pid" 2>/dev/null)
+        if [[ -n "$_lock_pid" ]] && kill -0 "$_lock_pid" 2>/dev/null; then
+            # Lock holder is alive — back off
             exit 0
+        else
+            # Lock holder is dead — clean up and take the lock
+            rm -rf "$LOCK_FILE"
+            mkdir "$LOCK_FILE" 2>/dev/null || exit 0
         fi
     fi
 fi
-trap 'rmdir "$LOCK_FILE" 2>/dev/null' EXIT
+echo $$ > "$LOCK_FILE/pid"
+trap 'rm -rf "$LOCK_FILE" 2>/dev/null' EXIT
 
 SESSION_NAME="${1:-$(tmux display-message -p '#S')}"
 SESSION_VPN=$(tmux show-environment -t "$SESSION_NAME" SESSION_VPN 2>/dev/null | cut -d= -f2)
@@ -56,6 +73,12 @@ fi
 
 # Already on correct VPN
 [[ "$CURRENT_VPN" == "$SESSION_VPN" ]] && exit 0
+
+# Disconnect current VPN before connecting new one to avoid routing conflicts
+if [[ -n "$CURRENT_VPN" ]]; then
+    vpn_disconnect "$CURRENT_VPN" >/dev/null 2>&1
+    sleep 0.3
+fi
 
 # Connect via popup
 vpn_popup_connect "$SESSION_VPN"

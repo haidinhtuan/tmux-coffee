@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
-# Set VPN for current session and save to persistent config
-# Usage: vpn-set.sh [VPN_NAME]
+#
+# vpn-set.sh — Manually assign a VPN profile to the current session
+#
+# Hook:    none (user-facing, invoked manually or from coffee TUI)
+# Args:    $1 = VPN profile name (optional; shows fzf picker if omitted)
+# Flow:
+#   1. If no arg, show fzf picker with profiles from vpn-profiles.conf
+#   2. Validate profile name (exact match, then case-insensitive)
+#   3. Set SESSION_VPN env var in the session
+#   4. Persist mapping via vpn-save.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/vpn-config.sh"

@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
-# Remove VPN mappings for sessions that no longer exist
+#
+# vpn-cleanup.sh — Remove orphaned VPN mappings from config
+#
+# Hook:    session-closed (set in coffee.tmux, runs in background with -b)
+# Args:    none
+# Flow:
+#   1. List all existing tmux sessions
+#   2. Read ~/.tmux/vpn-sessions.conf
+#   3. Drop entries whose session no longer exists
+#   4. Rewrite config in place
+#
+# Also called by vpn-restore.sh after resurrect to clean stale entries.
 
 CONFIG_FILE="$HOME/.tmux/vpn-sessions.conf"
 TEMP_FILE="${CONFIG_FILE}.tmp"

@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
-# Save session VPN mapping to persistent config
+#
+# vpn-save.sh — Persist a session-to-VPN mapping
+#
+# Hook:    none (called by vpn-set.sh and coffee-new-session.sh)
+# Args:    $1 = session name
+#          $2 = VPN profile name (or "none" to remove mapping)
+# Config:  ~/.tmux/vpn-sessions.conf (key=value, auto-generated)
 
 CONFIG_FILE="$HOME/.tmux/vpn-sessions.conf"
 SESSION="$1"

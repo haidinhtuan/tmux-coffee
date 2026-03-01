@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
-# VPN configuration parser for tmux-coffee
-# Source this file to get VPN profile data from INI-style config
+#
+# vpn-config.sh — VPN configuration parser (sourced by all vpn-*.sh scripts)
+#
+# Hook:    none (library, not a hook script)
+# Config:  ~/.tmux/vpn-profiles.conf (INI format, path overridable via @coffee-vpn-config)
+#
+# Parses VPN profiles into associative arrays and provides helper functions:
+#   vpn_detect_active   — returns name of currently connected VPN (or empty)
+#   vpn_disconnect      — disconnect a VPN by profile name
+#   vpn_popup_connect   — connect a VPN via tmux popup + run post_connect hook
+#
+# Config is parsed on source, so all arrays are populated immediately.
 
 COFFEE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -90,12 +100,15 @@ vpn_popup_connect() {
     [[ -z "$cmd" ]] && return 1
 
     tmux display-popup -E -w "$w" -h "$h" -b rounded \
-        -T " 󰖂 Connecting to $name " "$cmd"
+        -S "fg=#94e2d5" -T "  vpn: $name " "$cmd"
+    local rc=$?
 
-    # Run post_connect hook if defined
-    if [[ -n "${VPN_POST_CONNECT[$name]}" ]]; then
+    # Only run post_connect hook if popup/connect succeeded
+    if [[ $rc -eq 0 && -n "${VPN_POST_CONNECT[$name]}" ]]; then
         eval "${VPN_POST_CONNECT[$name]}"
     fi
+
+    return $rc
 }
 
 # Parse config on source

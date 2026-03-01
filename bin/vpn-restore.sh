@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
-# Restore session VPN mappings from persistent config
-# Called by tmux-resurrect post-restore-all hook
+#
+# vpn-restore.sh — Bulk restore VPN state after tmux-resurrect
+#
+# Hook:    @resurrect-hook-post-restore-all (set in .tmux.conf)
+# Args:    none
+# Flow:
+#   1. Read ~/.tmux/vpn-sessions.conf, set SESSION_VPN env for each session
+#   2. Apply post_connect env vars per-session (e.g. SSH_AUTH_SOCK)
+#   3. Run vpn-cleanup.sh to remove orphaned entries
+#   4. Set 10s cooldown (@vpn_restore_cooldown) to suppress queued switch events
+#   5. Clear @vpn_restoring flag
+#   6. Explicitly call vpn-switch.sh --post-restore for current session only
 
 # Resolve symlinks so SCRIPT_DIR always points to the real bin/ directory
 _self="${BASH_SOURCE[0]}"
