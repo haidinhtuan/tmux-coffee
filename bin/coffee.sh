@@ -72,24 +72,24 @@ dir_preview_cmd="$(which eza) ${eza_options}"
 # Strip ANSI codes, then session marker prefix before preview
 # Use actual ESC character for ANSI stripping (\x1b doesn't work in fzf's shell)
 _esc=$'\x1b'
-preview="target=\$(echo {} | sed 's/${_esc}\[[0-9;]*m//g' | sed -e 's/^● //' -e 's/^  //' | cut -f1 | sed 's/[[:space:]]*$//'); $session_preview_cmd \"\$target\" 2>/dev/null || eval $dir_preview_cmd \"\$target\""
+preview="target=\$(echo {} | sed 's/${_esc}\[[0-9;]*m//g' | sed -e 's/^● //' -e 's/^  //' | cut -f1 | sed 's/[[:space:]]*$//'); $session_preview_cmd \"\$target\" 2>/dev/null || $dir_preview_cmd \"\$target\""
 
 t_bind="ctrl-t:abort"
 tab_bind="tab:down,btab:up"
 list_sessions_cmd="bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-list-sessions.sh"
-session_bind="ctrl-s:change-prompt(  )+reload($list_sessions_cmd)+change-header($SESSION_HEADER)+change-preview(target=\$(echo {} | sed 's/${_esc}\[[0-9;]*m//g' | sed -e 's/^● //' -e 's/^  //' | cut -f1 | sed 's/[[:space:]]*$//'); $session_preview_cmd \"\$target\" 2>/dev/null || eval $dir_preview_cmd \"\$target\")+change-preview-window($preview_position,75%)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
+session_bind="ctrl-s:change-prompt(  )+reload($list_sessions_cmd)+change-header($SESSION_HEADER)+change-preview(target=\$(echo {} | sed 's/${_esc}\[[0-9;]*m//g' | sed -e 's/^● //' -e 's/^  //' | cut -f1 | sed 's/[[:space:]]*$//'); $session_preview_cmd \"\$target\" 2>/dev/null || $dir_preview_cmd \"\$target\")+change-preview-window($preview_position,75%)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
 # Build zoxide_bind with proper quoting for sed and icons
 _zoxide_sed="sed -e '"
 _zoxide_sed+="$home_replacer"
 _zoxide_sed+="'"
-zoxide_bind='ctrl-j:change-prompt('"$PROMPT"')+reload(zoxide query -l | '"$_zoxide_sed"')+change-header('"$HEADER"')+change-preview(eval '"$dir_preview_cmd"' {})+change-preview-window('"$preview_position"')+execute-silent(echo ZOXIDE > '"$_mode_file"'; '"$_footer_cmd"' ZOXIDE)'
+zoxide_bind='ctrl-j:change-prompt('"$PROMPT"')+reload(zoxide query -l | '"$_zoxide_sed"')+change-header('"$HEADER"')+change-preview('"$dir_preview_cmd"' {})+change-preview-window('"$preview_position"')+execute-silent(echo ZOXIDE > '"$_mode_file"'; '"$_footer_cmd"' ZOXIDE)'
 fd_cmd="$(which fd 2>/dev/null || which fdfind 2>/dev/null || echo fd)"
 find_bind="ctrl-f:change-prompt(  )+reload($fd_cmd -H -d $max_depth -t d . $find_path | sed 's|/$||')+change-header($HEADER)+change-preview($dir_preview_cmd {})+change-preview-window($preview_position)+execute-silent(echo FIND > $_mode_file; $_footer_cmd FIND)"
 window_bind="ctrl-w:change-prompt(  )+reload(tmux list-windows -a -F '#{session_name}:#{window_index}')+change-header($HEADER)+change-preview($session_preview_cmd {})+change-preview-window($preview_position)+execute-silent(echo WINDOWS > $_mode_file; $_footer_cmd WINDOWS)"
 
-delete_bind="ctrl-d:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-kill-session.sh \$(echo {} | sed -e 's/^● //' -e 's/^  //' | cut -f1))+reload-sync($list_sessions_cmd)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
-new_session_bind="ctrl-n:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-new-session.sh)+reload-sync($list_sessions_cmd)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
-rename_bind="ctrl-r:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-rename-session.sh \$(echo {} | sed -e 's/^● //' -e 's/^  //' | cut -f1))+reload-sync($list_sessions_cmd)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
+delete_bind="ctrl-d:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-kill-session.sh \$(echo {} | sed -e 's/^● //' -e 's/^  //' | cut -f1))+clear-screen+reload-sync($list_sessions_cmd)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
+new_session_bind="ctrl-n:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-new-session.sh)+clear-screen+reload-sync($list_sessions_cmd)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
+rename_bind="ctrl-r:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-rename-session.sh \$(echo {} | sed -e 's/^● //' -e 's/^  //' | cut -f1))+clear-screen+reload-sync($list_sessions_cmd)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
 resize_bind="resize:execute-silent($_footer_cmd \$(cat $_mode_file))"
 clear_bind="ctrl-l:clear-screen+execute-silent($_footer_cmd \$(cat $_mode_file))"
 
