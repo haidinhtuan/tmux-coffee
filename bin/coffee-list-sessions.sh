@@ -18,16 +18,16 @@ if [[ -f "$CONFIG_FILE" ]]; then
     done < "$CONFIG_FILE"
 fi
 
-# Colors
+# Colors (vibrant pastel palette)
 BOLD='\033[1m'
 DIM='\033[2m'
-GREEN='\033[32m'
-BGREEN='\033[1;32m'
-CYAN='\033[36m'
-BLUE='\033[34m'
-MAGENTA='\033[35m'
-YELLOW='\033[33m'
-RED='\033[31m'
+GREEN='\033[38;2;189;240;185m'    # #bdf0b9
+BGREEN='\033[1;38;2;189;240;185m' # #bdf0b9 bold
+CYAN='\033[38;2;168;240;229m'     # #a8f0e5
+BLUE='\033[38;2;164;197;255m'     # #a4c5ff
+MAGENTA='\033[38;2;245;194;231m'  # #f5c2e7
+YELLOW='\033[38;2;255;240;194m'   # #fff0c2
+RED='\033[38;2;255;181;194m'      # #ffb5c2
 RESET='\033[0m'
 
 # Relative time from epoch timestamp
@@ -76,9 +76,9 @@ time_color() {
 }
 
 
-tmux list-sessions -F '#{session_last_attached}|#{session_name}|#{session_windows}|#{pane_current_path}|#{pane_current_command}|#{session_attached}' 2>/dev/null |
+tmux list-sessions -F '#{session_last_attached}|#{session_name}|#{session_windows}|#{pane_current_path}|#{window_name}|#{session_attached}' 2>/dev/null |
     sort -t'|' -k1 -rn |
-while IFS='|' read -r last_ts name windows pane_path cmd attached; do
+while IFS='|' read -r last_ts name windows pane_path win_name attached; do
     # Skip current session if --no-current
     [[ "$NO_CURRENT" == true && "$name" == "$CURRENT" ]] && continue
 
@@ -107,19 +107,18 @@ while IFS='|' read -r last_ts name windows pane_path cmd attached; do
         dir="$pane_path"
     fi
     [[ ${#dir} -gt 24 ]] && dir="..${dir: -22}"
+    # Replace / with ∕ (U+2215) to prevent fzf --delimiter='/' from splitting session lines
+    dir="${dir//\//$'\xe2\x88\x95'}"
 
     # Time
     time_str="$(relative_time "$last_ts")"
     tc="$(time_color "$last_ts")"
 
-    # Command (truncate)
-    [[ ${#cmd} -gt 10 ]] && cmd="${cmd:0:8}.."
-
     # Attached indicator (other clients)
     if [[ "$attached" -gt 0 && "$name" != "$CURRENT" ]]; then
-        attach_icon="${GREEN} ${RESET}"
+        attach_icon="${GREEN} ${RESET} "
     elif [[ "$attached" -gt 1 ]]; then
-        attach_icon="${GREEN} ${RESET}"
+        attach_icon="${GREEN} ${RESET} "
     else
         attach_icon="  "
     fi
@@ -134,11 +133,16 @@ while IFS='|' read -r last_ts name windows pane_path cmd attached; do
     fi
 
     dir_seg="${BLUE}$(printf '%-24s' "$dir")${RESET}"
-    cmd_seg="${MAGENTA}$(printf ' %-10s' "$cmd")${RESET}"
+
+    # Active window name (truncate)
+    [[ ${#win_name} -gt 14 ]] && win_name="${win_name:0:12}.."
+    win_name="${win_name//\//$'\xe2\x88\x95'}"
+    win_name_seg="${MAGENTA}$(printf '%-14s' "$win_name")${RESET}"
+
     time_seg="${tc}$(printf ' %s' "$time_str")${RESET}"
 
     # Truncate session name to fit column
     [[ ${#name} -gt 18 ]] && name="${name:0:16}.."
     printf "%b%s\t%b %b  %b  %b  %b  %b\n" \
-        "$marker" "$name" "$attach_icon" "$win_seg" "$vpn_seg" "$dir_seg" "$cmd_seg" "$time_seg"
+        "$marker" "$name" "$attach_icon" "$win_seg" "$vpn_seg" "$dir_seg" "$win_name_seg" "$time_seg"
 done

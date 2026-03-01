@@ -30,10 +30,10 @@ tput civis
 # Function to move cursor
 move() { printf '\033[%d;%dH' "$1" "$2"; }
 
-# Colors
-BLUE='\033[1;34m'
-GREEN='\033[1;32m'
-YELLOW='\033[1;33m'
+# Colors (vibrant pastel palette)
+BLUE='\033[1;38;2;164;197;255m'     # #a4c5ff
+GREEN='\033[1;38;2;189;240;185m'    # #bdf0b9
+YELLOW='\033[1;38;2;255;240;194m'   # #fff0c2
 DIM='\033[2m'
 RESET='\033[0m'
 REVERSE='\033[7m'
