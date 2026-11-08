@@ -25,6 +25,25 @@ if [[ "$1" == "--step" ]]; then
     exit 0
 fi
 
+BOLD='\033[1m'; MAUVE='\033[38;2;203;166;247m'; PEACH='\033[38;2;255;198;161m'
+BLUE='\033[38;2;164;197;255m'; RESET='\033[0m'
+
+# Drill-down: preview one window of a session
+if [[ "$1" == "--window" ]]; then
+    sess="$2"; idx=$(printf '%s' "$3" | sed 's/^[^0-9]*//; s/[^0-9].*//')
+    [[ -z "$sess" || -z "$idx" ]] && exit 0
+    t="=$sess:$idx"
+    info=$(tmux display-message -p -t "$t" '#{window_name}|#{pane_current_command}|#{pane_current_path}|#{window_panes}' 2>/dev/null) || exit 0
+    IFS='|' read -r wname cmd wpath panes <<< "$info"
+    [[ "$wpath" == "$HOME"/* ]] && wpath="~/${wpath#"$HOME"/}"
+    printf '%b%s › %s: %s%b  %b%s%b  %b%s%b  %s\n\n' "$BOLD$MAUVE" "$sess" "$idx" "$wname" "$RESET" \
+        "$PEACH" "$cmd" "$RESET" "$BLUE" "$wpath" "$RESET" "$([[ $panes -gt 1 ]] && echo "[$panes panes]")"
+    tmux capture-pane -ep -t "$t" 2>/dev/null |
+        awk '{ buf[NR] = $0 } /[^[:space:]]/ { last = NR } END { for (i = 1; i <= last; i++) print buf[i] }' |
+        tail -n $(( ${FZF_PREVIEW_LINES:-40} - 2 ))
+    exit 0
+fi
+
 raw="$1"
 state_file="$2"
 esc=$'\x1b'

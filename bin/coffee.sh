@@ -129,8 +129,10 @@ clear_bind="ctrl-l:clear-screen+execute-silent($_footer_cmd \$(cat $_mode_file))
 preview_toggle_bind="ctrl-p:toggle-preview"
 win_next_bind="alt-right:execute-silent($preview_script --step 1 $_pwin_file)+refresh-preview"
 win_prev_bind="alt-left:execute-silent($preview_script --step -1 $_pwin_file)+refresh-preview"
+drill_in_bind="right:transform(bash $BIN_DIR/coffee-drill.sh in $_mode_file $_pwin_file {q} {})"
+drill_out_bind="left:transform(bash $BIN_DIR/coffee-drill.sh out $_mode_file $_pwin_file {q} {})"
 win_reset_bind="focus:execute-silent($preview_script --step 0 $_pwin_file)+refresh-preview"
-GHOST="type to filter  ·  ^n new  ^r rename  ^d delete  ·  ^s sessions  ^j zoxide  ^f find  ^w windows  ·  ^p preview  alt ←/→ window"
+GHOST="type to filter  ·  → windows  ← back  ·  ^n new  ^r rename  ^d delete  ·  ^s sessions  ^j zoxide  ^f find  ·  ^p preview"
 
 # determine if the tmux server is running
 tmux_running=1
@@ -355,6 +357,8 @@ else
             printf '%s\0' "--bind" "$win_next_bind"
             printf '%s\0' "--bind" "$win_prev_bind"
             printf '%s\0' "--bind" "$win_reset_bind"
+            printf '%s\0' "--bind" "$drill_in_bind"
+            printf '%s\0' "--bind" "$drill_out_bind"
             printf '%s\0' "--ghost" "$GHOST"
             printf '%s\0' "--gutter" " "
             printf '%s\0' "--bind" "$(get_initial_footer_bind)"
@@ -380,7 +384,7 @@ else
             printf '%s\0' "--nth=1"
             printf '%s\0' "--list-border=rounded"
             printf '%s\0' "--list-label" "$(get_initial_list_label)"
-            printf '%s\0' "--color=list-border:#585b70,preview-border:#585b70,list-label:#cba6f7,header:#9399b2"
+            printf '%s\0' "--color=list-border:#cdd6f4,preview-border:#585b70,list-label:#cba6f7:bold,header:#9399b2"
             printf '%s\0' "--keep-right"
             printf '%s\0' "--prompt" "$(get_initial_prompt)"
             printf '%s\0' "--marker" "$MARKER"
@@ -405,11 +409,11 @@ else
         result=$(get_initial_results | fzf \
             --bind "$(get_initial_footer_bind)" --bind "$find_bind" --bind "$session_bind" --bind "$tab_bind" --bind "$window_bind" --bind "$t_bind" \
             --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" --bind "$rename_bind" \
-            --bind "$resize_bind" --bind "$clear_bind" --bind "$preview_toggle_bind" --bind "$win_next_bind" --bind "$win_prev_bind" --bind "$win_reset_bind" --ghost "$GHOST" --gutter ' ' \
+            --bind "$resize_bind" --bind "$clear_bind" --bind "$preview_toggle_bind" --bind "$win_next_bind" --bind "$win_prev_bind" --bind "$win_reset_bind" --bind "$drill_in_bind" --bind "$drill_out_bind" --ghost "$GHOST" --gutter ' ' \
             --height="$_fzf_height" --border none --no-scrollbar --header "$(get_initial_header)" --ansi --tabstop=1 \
             --no-sort --cycle --delimiter='\t' --nth=1 --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" \
             --list-border=rounded --list-label "$(get_initial_list_label)" \
-            --color='list-border:#585b70,preview-border:#585b70,list-label:#cba6f7,header:#9399b2' \
+            --color='list-border:#cdd6f4,preview-border:#585b70,list-label:#cba6f7:bold,header:#9399b2' \
             --preview "$preview" --preview-window="$SESSION_PREVIEW_WINDOW" --layout="$layout" || true)
         ;;
     serverless)
@@ -441,6 +445,24 @@ if [[ "$result" == NEW_SESSION:* ]]; then
 fi
 
 [[ "$result" ]] || exit 0
+
+# Drill-down selection: mode file holds "SESSWIN<TAB><session>", line = window
+_mode=$(cat "$_mode_file" 2>/dev/null)
+if [[ "$_mode" == SESSWIN$'\t'* ]]; then
+    _sess="${_mode#*$'\t'}"
+    _idx=$(printf '%s' "$result" | sed -e 's/^● //' -e 's/^  //' | cut -f1 | tr -dc '0-9')
+    if [[ -n "$_idx" ]] && tmux has-session -t "=$_sess" 2>/dev/null; then
+        tmux select-window -t "=$_sess:$_idx" 2>/dev/null
+        case $run_type in
+            attached)
+                tmux switch-client -t "=$_sess"
+                tmux run-shell -b "$BIN_DIR/vpn-switch.sh '$_sess'"
+                ;;
+            *) tmux attach -t "=$_sess" ;;
+        esac
+    fi
+    exit 0
+fi
 
 # Strip session marker prefix (● or spaces) if present
 result=$(echo "$result" | sed -e 's/^● //' -e 's/^  //')

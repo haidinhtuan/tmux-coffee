@@ -9,6 +9,7 @@
 # All segments always visible (empty space when data is missing, like Starship)
 
 mode=$1
+[[ "$mode" == SESSWIN* ]] && mode=WINDOWS
 
 # Catppuccin Mocha mantle background: #181825 (RGB: 24, 24, 37)
 MANTLE_BG='\033[48;2;24;24;37m'
