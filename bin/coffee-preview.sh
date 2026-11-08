@@ -2,12 +2,31 @@
 # Preview for an fzf line: a tmux session, a window target (session:index),
 # or a directory.
 #
-# Usage: coffee-preview.sh <raw fzf line>
+# Usage: coffee-preview.sh <raw fzf line> [state_file]
+#        coffee-preview.sh --step <+1|-1|0> <state_file>
 #
-# Session preview: one line per window (active marked), then the tail of the
-# active pane, sized to $FZF_PREVIEW_LINES.
+# Session preview: one line per window, then the tail of the previewed
+# window's active pane, sized to $FZF_PREVIEW_LINES.
+#
+# Window stepping (Alt+Left/Right in the picker): the state file holds an
+# offset from the session's active window. The preview writes the previewed
+# target to "<state_file>.sel" ("session<TAB>window_index") so that Enter can
+# open the session on that window. --step 0 resets (on cursor move).
+
+if [[ "$1" == "--step" ]]; then
+    step="$2"; f="$3"
+    [[ -z "$f" ]] && exit 0
+    if [[ "$step" == 0 ]]; then
+        echo 0 > "$f"
+    else
+        cur=$(cat "$f" 2>/dev/null); cur=${cur:-0}
+        echo $(( cur + step )) > "$f"
+    fi
+    exit 0
+fi
 
 raw="$1"
+state_file="$2"
 esc=$'\x1b'
 # strip ANSI, session marker, metadata after TAB, trailing padding
 target=$(printf '%s' "$raw" | sed "s/${esc}\[[0-9;]*m//g" | sed -e 's/^● //' -e 's/^  //' | cut -f1 | sed 's/[[:space:]]*$//')
@@ -48,12 +67,26 @@ if [[ "$target" != *:* ]] && tmux has-session -t "=$target" 2>/dev/null; then
         "$PEACH" "$nwin" "$([[ $nwin == 1 ]] || echo s)" "$RESET" \
         "$BLUE" "$(short_path "$spath")" "$RESET"
 
+    # which window to preview: active window + offset (wraps around)
+    mapfile -t win_idx < <(tmux list-windows -t "=$target:" -F '#{window_index}' 2>/dev/null)
+    active_idx=$(tmux display-message -p -t "=$target:" '#{window_index}' 2>/dev/null)
+    offset=0
+    [[ -n "$state_file" ]] && offset=$(cat "$state_file" 2>/dev/null)
+    offset=${offset:-0}
+    pos=0
+    for i in "${!win_idx[@]}"; do [[ "${win_idx[$i]}" == "$active_idx" ]] && pos=$i; done
+    n=${#win_idx[@]}
+    (( n > 0 )) && pos=$(( ( (pos + offset) % n + n ) % n ))
+    show_idx="${win_idx[$pos]:-$active_idx}"
+    [[ -n "$state_file" ]] && printf '%s\t%s\n' "$target" "$show_idx" > "$state_file.sel"
+
     # window overview
     name_w=$(tmux list-windows -t "=$target:" -F '#{window_name}' 2>/dev/null | awk '{ if (length > m) m = length } END { print (m > 20 ? 20 : m) }')
     tmux list-windows -t "=$target:" -F '#{window_active}|#{window_index}|#{window_name}|#{pane_current_command}|#{pane_current_path}|#{window_panes}' 2>/dev/null |
     while IFS='|' read -r active idx wname cmd wpath panes; do
         mark="  "; color="$RESET"
-        [[ "$active" == 1 ]] && { mark="${GREEN}▶${RESET} "; color="$BOLD"; }
+        [[ "$idx" == "$show_idx" ]] && { mark="${GREEN}▶${RESET} "; color="$BOLD"; }
+        [[ "$active" == 1 ]] && wname="$wname*"
         [[ ${#wname} -gt 20 ]] && wname="${wname:0:19}…"
         extra=""; (( panes > 1 )) && extra="  ${DIM}[${panes} panes]${RESET}"
         printf '%b%b%2s  %-*s%b  %b%-10s%b  %b%s%b%b\n' \
@@ -65,9 +98,11 @@ if [[ "$target" != *:* ]] && tmux has-session -t "=$target" 2>/dev/null; then
     remain=$(( lines - used - 1 ))
     if (( remain > 3 )); then
         echo
-        rule "active pane"
+        wlabel=$(tmux display-message -p -t "=$target:$show_idx" 'window #{window_index}: #{window_name}' 2>/dev/null)
+        hint=""; (( n > 1 )) && hint="  (alt ←/→)"
+        rule "$wlabel$hint"
         # drop trailing blank lines, keep the last $remain lines
-        tmux capture-pane -ep -t "=$target:" 2>/dev/null |
+        tmux capture-pane -ep -t "=$target:$show_idx" 2>/dev/null |
             awk '{ buf[NR] = $0 } /[^[:space:]]/ { last = NR } END { for (i = 1; i <= last; i++) print buf[i] }' |
             tail -n "$remain"
     fi

@@ -7,7 +7,9 @@ A tmux session manager with VPN-aware session switching, beautiful UI, and enhan
 ## Features
 
 - **Fuzzy Search**: fzf integration for intuitive session selection
-- **Session Previews**: Visual previews of existing sessions and directory contents
+- **Responsive Layout**: list and preview side-by-side on wide screens, stacked on laptops
+- **Session Previews**: window overview plus the previewed window's pane; step through windows with `Alt+←/→`
+- **Directory Modes**: full paths with the folder name highlighted and a marker for folders that already have a session
 - **Zoxide Integration**: Directory-based session creation with smart directory jumping
 - **VPN Session Binding**: Associate sessions with configurable VPN profiles
 - **Automatic VPN Switching**: Switching sessions automatically connects the correct VPN
@@ -35,6 +37,9 @@ Then press `prefix + I` to install.
 | `Ctrl+w` | Window mode (existing windows) |
 | `Ctrl+n` | **Create new session** (with VPN selection) |
 | `Ctrl+d` | **Delete session** (with confirmation) |
+| `Ctrl+r` | Rename session |
+| `Alt+←` / `Alt+→` | Step the preview through the session's windows; `Enter` opens that window |
+| `Ctrl+p` | Toggle the preview |
 | `Ctrl+t` | Toggle / exit |
 
 ### Create Session Dialog
@@ -73,8 +78,13 @@ set -g @coffee-default-mode "sessions"
 # Default directory for find mode
 set -g @coffee-find-path "$HOME/Projects"
 
-# Preview position: "top", "bottom", "left", "right"
-set -g @coffee-preview-position "top"
+# Preview position: "auto" (default: side-by-side on wide terminals,
+# stacked below 160 columns), or "top", "bottom", "left", "right"
+set -g @coffee-preview-position "auto"
+
+# Command printing the live VPN state for the footer when the session has
+# no VPN binding (prints nothing when disconnected)
+set -g @coffee-vpn-status-cmd "$HOME/.local/bin/vpn-status"
 
 # Keybinding to toggle coffee (default: "t")
 set -g @coffee-bind "t"

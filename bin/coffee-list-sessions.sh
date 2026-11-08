@@ -109,7 +109,7 @@ if (( avail >= 16 + 2 )); then
 fi
 if $any_vpn && (( avail >= vpn_w + 2 )); then show_vpn=true; fi
 
-# Pad by characters, not bytes (bash printf pads bytes; ∕ and … are 3 bytes)
+# Pad by characters, not bytes (bash printf pads bytes; … is 3 bytes)
 pad() { local s="$1" w="$2"; printf '%s%*s' "$s" $(( w > ${#s} ? w - ${#s} : 0 )) ''; }
 pad_name() { pad "${1:0:$name_w}" "$name_w"; }
 
@@ -160,14 +160,11 @@ for r in "${rows[@]}"; do
         elif [[ "$spath" == "$HOME"/* ]]; then dir="~/${spath#"$HOME"/}"
         else dir="$spath"; fi
         (( ${#dir} > dir_w )) && dir="…${dir: -$((dir_w - 1))}"
-        # U+2215 so fzf --delimiter='/' never splits session lines
-        dir="${dir//\//$'\xe2\x88\x95'}"
         meta+="  ${BLUE}$(pad "$dir" "$dir_w")${RESET}"
     fi
 
     if $show_win; then
         (( ${#win_name} > win_w )) && win_name="${win_name:0:$((win_w - 2))}.."
-        win_name="${win_name//\//$'\xe2\x88\x95'}"
         meta+="  ${MAGENTA}$(pad "$win_name" "$win_w")${RESET}"
     fi
 

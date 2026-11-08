@@ -24,6 +24,9 @@ readonly HEADER=''
 # Footer status bar rendered directly to terminal last line (bypasses fzf footer)
 _footer_cmd="bash $BIN_DIR/coffee-draw-footer.sh"
 _mode_file="/tmp/tmux-coffee-mode.$$"
+# Window-stepping state for the session preview (see coffee-preview.sh)
+_pwin_file="/tmp/tmux-coffee-pwin.$$"
+echo 0 > "$_pwin_file"
 # Session column header — must match printf format in coffee-list-sessions.sh exactly
 # home path fix for sed
 home_replacer=""
@@ -62,7 +65,7 @@ SPLIT_AT=160
 if [[ "$preview_position" == "auto" ]]; then
     # fzf compares <N against the preview's own width (60% of the terminal),
     # so N = 60% of SPLIT_AT switches layouts at SPLIT_AT terminal columns.
-    PREVIEW_WINDOW="right,60%,border-left,<$(( SPLIT_AT * 60 / 100 ))(down,50%,border-top)"
+    PREVIEW_WINDOW="right,60%,border-rounded,<$(( SPLIT_AT * 60 / 100 ))(down,50%,border-rounded)"
     SESSION_PREVIEW_WINDOW="$PREVIEW_WINDOW"
 else
     PREVIEW_WINDOW="$preview_position"
@@ -101,21 +104,22 @@ dir_preview_cmd="$(which eza) ${eza_options}"
 # Use actual ESC character for ANSI stripping (\x1b doesn't work in fzf's shell)
 _esc=$'\x1b'
 export COFFEE_EZA_OPTIONS="$eza_options"
-preview="$preview_script {}"
+preview="$preview_script {} $_pwin_file"
 
 t_bind="ctrl-t:abort"
 tab_bind="tab:down,btab:up"
 list_sessions_cmd="bash $BIN_DIR/coffee-list-sessions.sh"
+list_dirs_cmd="bash $BIN_DIR/coffee-list-dirs.sh"
 SESSION_HEADER=$($list_sessions_cmd --header)
-session_bind="ctrl-s:change-prompt(  )+reload($list_sessions_cmd)+transform-header($list_sessions_cmd --header)+change-preview($preview_script {})+change-preview-window~$SESSION_PREVIEW_WINDOW~+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
+session_bind="ctrl-s:change-list-label( sessions )+change-prompt(  )+reload($list_sessions_cmd)+transform-header($list_sessions_cmd --header)+change-preview($preview_script {} $_pwin_file)+change-preview-window~$SESSION_PREVIEW_WINDOW~+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
 # Build zoxide_bind with proper quoting for sed and icons
 _zoxide_sed="sed -e '"
 _zoxide_sed+="$home_replacer"
 _zoxide_sed+="'"
-zoxide_bind='ctrl-j:change-prompt('"$PROMPT"')+reload(zoxide query -l | '"$_zoxide_sed"')+change-header('"$HEADER"')+change-preview('"$preview_script"' {})+change-preview-window~'"$PREVIEW_WINDOW"'~+execute-silent(echo ZOXIDE > '"$_mode_file"'; '"$_footer_cmd"' ZOXIDE)'
+zoxide_bind='ctrl-j:change-list-label( recent folders )+change-prompt('"$PROMPT"')+reload(zoxide query -l | '"$list_dirs_cmd"')+change-header('"$HEADER"')+change-preview('"$preview_script"' {})+change-preview-window~'"$PREVIEW_WINDOW"'~+execute-silent(echo ZOXIDE > '"$_mode_file"'; '"$_footer_cmd"' ZOXIDE)'
 fd_cmd="$(which fd 2>/dev/null || which fdfind 2>/dev/null || echo fd)"
-find_bind="ctrl-f:change-prompt(  )+reload($fd_cmd -H -d $max_depth -t d . $find_path | sed 's|/$||')+change-header($HEADER)+change-preview($preview_script {})+change-preview-window~$PREVIEW_WINDOW~+execute-silent(echo FIND > $_mode_file; $_footer_cmd FIND)"
-window_bind="ctrl-w:change-prompt(  )+reload(tmux list-windows -a -F '#{session_name}:#{window_index}')+change-header($HEADER)+change-preview($preview_script {})+change-preview-window~$PREVIEW_WINDOW~+execute-silent(echo WINDOWS > $_mode_file; $_footer_cmd WINDOWS)"
+find_bind="ctrl-f:change-list-label( find folders )+change-prompt(  )+reload($fd_cmd -H -d $max_depth -t d . $find_path | $list_dirs_cmd)+change-header($HEADER)+change-preview($preview_script {})+change-preview-window~$PREVIEW_WINDOW~+execute-silent(echo FIND > $_mode_file; $_footer_cmd FIND)"
+window_bind="ctrl-w:change-list-label( windows )+change-prompt(  )+reload(tmux list-windows -a -F '#{session_name}:#{window_index}')+change-header($HEADER)+change-preview($preview_script {})+change-preview-window~$PREVIEW_WINDOW~+execute-silent(echo WINDOWS > $_mode_file; $_footer_cmd WINDOWS)"
 
 delete_bind="ctrl-d:execute(bash $BIN_DIR/coffee-kill-session.sh \"\$(echo {} | sed -e 's/^● //' -e 's/^  //' | cut -f1 | sed 's/[[:space:]]*$//')\")+clear-screen+reload-sync($list_sessions_cmd)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
 new_session_bind="ctrl-n:execute(bash $BIN_DIR/coffee-new-session.sh)+clear-screen+reload-sync($list_sessions_cmd)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
@@ -123,7 +127,10 @@ rename_bind="ctrl-r:execute(bash $BIN_DIR/coffee-rename-session.sh \"\$(echo {} 
 resize_bind="resize:execute-silent($_footer_cmd \$(cat $_mode_file))"
 clear_bind="ctrl-l:clear-screen+execute-silent($_footer_cmd \$(cat $_mode_file))"
 preview_toggle_bind="ctrl-p:toggle-preview"
-GHOST="type to filter  ·  ^n new  ^r rename  ^d delete  ·  ^s sessions  ^j zoxide  ^f find  ^w windows  ·  ^p preview"
+win_next_bind="alt-right:execute-silent($preview_script --step 1 $_pwin_file)+refresh-preview"
+win_prev_bind="alt-left:execute-silent($preview_script --step -1 $_pwin_file)+refresh-preview"
+win_reset_bind="focus:execute-silent($preview_script --step 0 $_pwin_file)+refresh-preview"
+GHOST="type to filter  ·  ^n new  ^r rename  ^d delete  ·  ^s sessions  ^j zoxide  ^f find  ^w windows  ·  ^p preview  alt ←/→ window"
 
 # determine if the tmux server is running
 tmux_running=1
@@ -138,7 +145,7 @@ get_sessions_by_last_used() {
 }
 
 get_zoxide_results() {
-    zoxide query -l | sed -e "$home_replacer"
+    zoxide query -l | $list_dirs_cmd
 }
 
 get_fzf_results() {
@@ -153,7 +160,7 @@ get_fzf_results() {
 get_initial_results() {
     case "$default_mode" in
         sessions) bash "$BIN_DIR/coffee-list-sessions.sh" ;;
-        find) $fd_cmd -H -d "$max_depth" -t d . "$find_path" | sed 's|/$||' ;;
+        find) $fd_cmd -H -d "$max_depth" -t d . "$find_path" | $list_dirs_cmd ;;
         *) get_fzf_results ;;
     esac
 }
@@ -170,6 +177,14 @@ get_initial_header() {
     case "$default_mode" in
         sessions) echo "$SESSION_HEADER" ;;
         *) echo "$HEADER" ;;
+    esac
+}
+
+get_initial_list_label() {
+    case "$default_mode" in
+        sessions) echo ' sessions ' ;;
+        find) echo ' find folders ' ;;
+        *) echo ' recent folders ' ;;
     esac
 }
 
@@ -206,6 +221,14 @@ create_and_attach_session() {
             else
                 tmux new-session -d -s "$session_name" -c "$result"
             fi
+        fi
+    fi
+
+    # Open on the window that was being previewed (Alt+Left/Right)
+    if [[ -f "$_pwin_file.sel" ]]; then
+        IFS=$'\t' read -r _sel_sess _sel_idx < "$_pwin_file.sel"
+        if [[ "$_sel_sess" == "$session_name" && -n "$_sel_idx" ]]; then
+            tmux select-window -t "=$session_name:$_sel_idx" 2>/dev/null
         fi
     fi
 
@@ -319,7 +342,7 @@ else
         input_file="$tmp_dir/input"
         output_file="$tmp_dir/output"
         fzf_cmd_file="$tmp_dir/fzf_cmd.sh"
-        trap "rm -rf '$tmp_dir'; rm -f '$_mode_file'" EXIT
+        trap "rm -rf '$tmp_dir'; rm -f '$_mode_file' '$_pwin_file' '$_pwin_file.sel'" EXIT
         
         # Write initial results to temp file
         get_initial_results > "$input_file"
@@ -329,6 +352,9 @@ else
         # This avoids complex quoting issues with heredocs
         {
             printf '%s\0' "--bind" "$preview_toggle_bind"
+            printf '%s\0' "--bind" "$win_next_bind"
+            printf '%s\0' "--bind" "$win_prev_bind"
+            printf '%s\0' "--bind" "$win_reset_bind"
             printf '%s\0' "--ghost" "$GHOST"
             printf '%s\0' "--gutter" " "
             printf '%s\0' "--bind" "$(get_initial_footer_bind)"
@@ -350,8 +376,11 @@ else
             printf '%s\0' "--tabstop=1"
             printf '%s\0' "--no-sort"
             printf '%s\0' "--cycle"
-            printf '%s\0' "--delimiter=/"
-            printf '%s\0' "--with-nth=$show_nth"
+            printf '%s\0' "--delimiter=\t"
+            printf '%s\0' "--nth=1"
+            printf '%s\0' "--list-border=rounded"
+            printf '%s\0' "--list-label" "$(get_initial_list_label)"
+            printf '%s\0' "--color=list-border:#585b70,preview-border:#585b70,list-label:#cba6f7,header:#9399b2"
             printf '%s\0' "--keep-right"
             printf '%s\0' "--prompt" "$(get_initial_prompt)"
             printf '%s\0' "--marker" "$MARKER"
@@ -372,22 +401,24 @@ else
         ;;
     detached)
         _fzf_height=$(($(tput lines) - 1))
-        trap "rm -f '$_mode_file'; printf '\033[%d;1H\033[2K' \"\$(tput lines)\" > /dev/tty" EXIT
+        trap "rm -f '$_mode_file' '$_pwin_file' '$_pwin_file.sel'; printf '\033[%d;1H\033[2K' \"\$(tput lines)\" > /dev/tty" EXIT
         result=$(get_initial_results | fzf \
             --bind "$(get_initial_footer_bind)" --bind "$find_bind" --bind "$session_bind" --bind "$tab_bind" --bind "$window_bind" --bind "$t_bind" \
             --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" --bind "$rename_bind" \
-            --bind "$resize_bind" --bind "$clear_bind" --bind "$preview_toggle_bind" --ghost "$GHOST" --gutter ' ' \
+            --bind "$resize_bind" --bind "$clear_bind" --bind "$preview_toggle_bind" --bind "$win_next_bind" --bind "$win_prev_bind" --bind "$win_reset_bind" --ghost "$GHOST" --gutter ' ' \
             --height="$_fzf_height" --border none --no-scrollbar --header "$(get_initial_header)" --ansi --tabstop=1 \
-            --no-sort --cycle --delimiter='/' --with-nth="$show_nth" --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" \
+            --no-sort --cycle --delimiter='\t' --nth=1 --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" \
+            --list-border=rounded --list-label "$(get_initial_list_label)" \
+            --color='list-border:#585b70,preview-border:#585b70,list-label:#cba6f7,header:#9399b2' \
             --preview "$preview" --preview-window="$SESSION_PREVIEW_WINDOW" --layout="$layout" || true)
         ;;
     serverless)
         _fzf_height=$(($(tput lines) - 1))
-        trap "rm -f '$_mode_file'; printf '\033[%d;1H\033[2K' \"\$(tput lines)\" > /dev/tty" EXIT
+        trap "rm -f '$_mode_file' '$_pwin_file' '$_pwin_file.sel'; printf '\033[%d;1H\033[2K' \"\$(tput lines)\" > /dev/tty" EXIT
         result=$(get_initial_results | fzf \
             --bind "$(get_initial_footer_bind)" --bind "$find_bind" --bind "$tab_bind" --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" --bind "$rename_bind" --bind "$t_bind" \
             --bind "$resize_bind" --bind "$clear_bind" \
-            --height="$_fzf_height" --border none --no-scrollbar --header "$(get_initial_header)" --ansi --tabstop=24 --no-sort --cycle --delimiter='/' --with-nth="$show_nth" \
+            --height="$_fzf_height" --border none --no-scrollbar --header "$(get_initial_header)" --ansi --tabstop=24 --no-sort --cycle --delimiter='\t' --nth=1 \
             --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" --preview "$dir_preview_cmd {}" || true)
         ;;
     esac
