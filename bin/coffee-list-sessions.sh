@@ -141,8 +141,6 @@ while IFS='|' read -r last_ts name windows pane_path win_name attached; do
 
     time_seg="${tc}$(printf ' %s' "$time_str")${RESET}"
 
-    # Truncate session name to fit column
-    [[ ${#name} -gt 18 ]] && name="${name:0:16}.."
     printf "%b%s\t%b %b  %b  %b  %b  %b\n" \
         "$marker" "$name" "$attach_icon" "$win_seg" "$vpn_seg" "$dir_seg" "$win_name_seg" "$time_seg"
 done

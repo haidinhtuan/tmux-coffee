@@ -41,7 +41,7 @@ esac
 # Get current session and VPN (always show segment, empty if no data)
 _cur_sess=$(tmux display-message -p '#S' 2>/dev/null)
 _cur_vpn=$(tmux show-environment -t "$_cur_sess" SESSION_VPN 2>/dev/null | cut -d= -f2)
-[[ -z "$_cur_vpn" || "$_cur_vpn" == "none" ]] && _cur_vpn=""
+[[ -z "$_cur_vpn" || "$_cur_vpn" == "none" ]] && _cur_vpn="NONE"
 
 # Truncate session name if too long
 [[ ${#_cur_sess} -gt 24 ]] && _cur_sess="${_cur_sess:0:22}.."
