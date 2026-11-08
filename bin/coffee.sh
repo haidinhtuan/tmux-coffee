@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
+BIN_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 readonly DEFAULT_FIND_PATH="$HOME/Projects"
 readonly DEFAULT_SHOW_NTH="-2,-1"
 readonly DEFAULT_MAX_DEPTH="2"
-readonly DEFAULT_PREVIEW_POSITION="top"
+readonly DEFAULT_PREVIEW_POSITION="auto"
 readonly DEFAULT_LAYOUT="reverse"
 readonly DEFAULT_SESSION_NAME_STYLE="basename"
 readonly DEFAULT_FZF_TMUX_OPTIONS="-p 90%"
@@ -21,12 +22,9 @@ readonly MARKER=''
 readonly HEADER=''
 
 # Footer status bar rendered directly to terminal last line (bypasses fzf footer)
-_footer_cmd="bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-draw-footer.sh"
+_footer_cmd="bash $BIN_DIR/coffee-draw-footer.sh"
 _mode_file="/tmp/tmux-coffee-mode.$$"
 # Session column header — must match printf format in coffee-list-sessions.sh exactly
-SESSION_COLS=$(printf '  %s\t   %s  %s  %s  %s  %s' \
-    'SESSION' "$(printf ' %-2s' '#')" "$(printf '%-12s' 'VPN')" "$(printf '%-24s' 'DIR')" "$(printf '%-14s' 'WINDOW')" "$(printf ' %s' 'LAST ACTIVE')")
-readonly SESSION_HEADER="$SESSION_COLS"
 # home path fix for sed
 home_replacer=""
 fzf_tmux_options=${FZF_TMUX_OPTS:-"$DEFAULT_FZF_TMUX_OPTIONS"}
@@ -55,6 +53,35 @@ fi
 show_nth=$(get_tmux_option "@coffee-show-nth" "$DEFAULT_SHOW_NTH")
 max_depth=$(get_tmux_option "@coffee-max-depth" "$DEFAULT_MAX_DEPTH")
 preview_position=$(get_tmux_option "@coffee-preview-position" "$DEFAULT_PREVIEW_POSITION")
+
+# ---------- responsive layout ----------
+# auto: side-by-side on wide terminals, stacked below SPLIT_AT columns
+# (fzf re-evaluates the alternative on resize; a second <N() would be
+# compared against the height once stacked, so keep a single one).
+SPLIT_AT=160
+if [[ "$preview_position" == "auto" ]]; then
+    # fzf compares <N against the preview's own width (60% of the terminal),
+    # so N = 60% of SPLIT_AT switches layouts at SPLIT_AT terminal columns.
+    PREVIEW_WINDOW="right,60%,border-left,<$(( SPLIT_AT * 60 / 100 ))(down,50%,border-top)"
+    SESSION_PREVIEW_WINDOW="$PREVIEW_WINDOW"
+else
+    PREVIEW_WINDOW="$preview_position"
+    SESSION_PREVIEW_WINDOW="$preview_position,75%"
+fi
+
+# Popup size: a bit smaller on very wide (4K) clients, near full-screen otherwise
+POPUP_W="95%"; POPUP_H="90%"
+if [[ -n "$TMUX" ]]; then
+    client_w=$(tmux display-message -p '#{client_width}' 2>/dev/null)
+    client_w=${client_w:-$(tput cols)}
+    (( client_w >= 250 )) && { POPUP_W="85%"; POPUP_H="80%"; }
+    # width fzf will get inside the popup (minus border) — used by the session list
+    COFFEE_COLUMNS=$(( client_w * ${POPUP_W%\%} / 100 - 2 ))
+else
+    COFFEE_COLUMNS=$(tput cols 2>/dev/null || echo 120)
+fi
+export COFFEE_COLUMNS
+export COFFEE_SPLIT_AT=$SPLIT_AT
 layout=$(get_tmux_option "@coffee-layout" "$DEFAULT_LAYOUT")
 session_name_style=$(get_tmux_option "@coffee-session-name" "$DEFAULT_SESSION_NAME_STYLE")
 default_command=$(get_tmux_option "@coffee-default-command" "")
@@ -68,30 +95,35 @@ case "$default_mode" in
 esac > "$_mode_file"
 
 session_preview_cmd="tmux capture-pane -ep -t"
+preview_script="bash $BIN_DIR/coffee-preview.sh"
 dir_preview_cmd="$(which eza) ${eza_options}"
 # Strip ANSI codes, then session marker prefix before preview
 # Use actual ESC character for ANSI stripping (\x1b doesn't work in fzf's shell)
 _esc=$'\x1b'
-preview="target=\$(echo {} | sed 's/${_esc}\[[0-9;]*m//g' | sed -e 's/^● //' -e 's/^  //' | cut -f1 | sed 's/[[:space:]]*$//'); $session_preview_cmd \"\$target\" 2>/dev/null || $dir_preview_cmd \"\$target\""
+export COFFEE_EZA_OPTIONS="$eza_options"
+preview="$preview_script {}"
 
 t_bind="ctrl-t:abort"
 tab_bind="tab:down,btab:up"
-list_sessions_cmd="bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-list-sessions.sh"
-session_bind="ctrl-s:change-prompt(  )+reload($list_sessions_cmd)+change-header($SESSION_HEADER)+change-preview(target=\$(echo {} | sed 's/${_esc}\[[0-9;]*m//g' | sed -e 's/^● //' -e 's/^  //' | cut -f1 | sed 's/[[:space:]]*$//'); $session_preview_cmd \"\$target\" 2>/dev/null || $dir_preview_cmd \"\$target\")+change-preview-window($preview_position,75%)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
+list_sessions_cmd="bash $BIN_DIR/coffee-list-sessions.sh"
+SESSION_HEADER=$($list_sessions_cmd --header)
+session_bind="ctrl-s:change-prompt(  )+reload($list_sessions_cmd)+transform-header($list_sessions_cmd --header)+change-preview($preview_script {})+change-preview-window~$SESSION_PREVIEW_WINDOW~+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
 # Build zoxide_bind with proper quoting for sed and icons
 _zoxide_sed="sed -e '"
 _zoxide_sed+="$home_replacer"
 _zoxide_sed+="'"
-zoxide_bind='ctrl-j:change-prompt('"$PROMPT"')+reload(zoxide query -l | '"$_zoxide_sed"')+change-header('"$HEADER"')+change-preview('"$dir_preview_cmd"' {})+change-preview-window('"$preview_position"')+execute-silent(echo ZOXIDE > '"$_mode_file"'; '"$_footer_cmd"' ZOXIDE)'
+zoxide_bind='ctrl-j:change-prompt('"$PROMPT"')+reload(zoxide query -l | '"$_zoxide_sed"')+change-header('"$HEADER"')+change-preview('"$preview_script"' {})+change-preview-window~'"$PREVIEW_WINDOW"'~+execute-silent(echo ZOXIDE > '"$_mode_file"'; '"$_footer_cmd"' ZOXIDE)'
 fd_cmd="$(which fd 2>/dev/null || which fdfind 2>/dev/null || echo fd)"
-find_bind="ctrl-f:change-prompt(  )+reload($fd_cmd -H -d $max_depth -t d . $find_path | sed 's|/$||')+change-header($HEADER)+change-preview($dir_preview_cmd {})+change-preview-window($preview_position)+execute-silent(echo FIND > $_mode_file; $_footer_cmd FIND)"
-window_bind="ctrl-w:change-prompt(  )+reload(tmux list-windows -a -F '#{session_name}:#{window_index}')+change-header($HEADER)+change-preview($session_preview_cmd {})+change-preview-window($preview_position)+execute-silent(echo WINDOWS > $_mode_file; $_footer_cmd WINDOWS)"
+find_bind="ctrl-f:change-prompt(  )+reload($fd_cmd -H -d $max_depth -t d . $find_path | sed 's|/$||')+change-header($HEADER)+change-preview($preview_script {})+change-preview-window~$PREVIEW_WINDOW~+execute-silent(echo FIND > $_mode_file; $_footer_cmd FIND)"
+window_bind="ctrl-w:change-prompt(  )+reload(tmux list-windows -a -F '#{session_name}:#{window_index}')+change-header($HEADER)+change-preview($preview_script {})+change-preview-window~$PREVIEW_WINDOW~+execute-silent(echo WINDOWS > $_mode_file; $_footer_cmd WINDOWS)"
 
-delete_bind="ctrl-d:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-kill-session.sh \$(echo {} | sed -e 's/^● //' -e 's/^  //' | cut -f1))+clear-screen+reload-sync($list_sessions_cmd)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
-new_session_bind="ctrl-n:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-new-session.sh)+clear-screen+reload-sync($list_sessions_cmd)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
-rename_bind="ctrl-r:execute(bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-rename-session.sh \$(echo {} | sed -e 's/^● //' -e 's/^  //' | cut -f1))+clear-screen+reload-sync($list_sessions_cmd)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
+delete_bind="ctrl-d:execute(bash $BIN_DIR/coffee-kill-session.sh \"\$(echo {} | sed -e 's/^● //' -e 's/^  //' | cut -f1 | sed 's/[[:space:]]*$//')\")+clear-screen+reload-sync($list_sessions_cmd)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
+new_session_bind="ctrl-n:execute(bash $BIN_DIR/coffee-new-session.sh)+clear-screen+reload-sync($list_sessions_cmd)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
+rename_bind="ctrl-r:execute(bash $BIN_DIR/coffee-rename-session.sh \"\$(echo {} | sed -e 's/^● //' -e 's/^  //' | cut -f1 | sed 's/[[:space:]]*$//')\")+clear-screen+reload-sync($list_sessions_cmd)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
 resize_bind="resize:execute-silent($_footer_cmd \$(cat $_mode_file))"
 clear_bind="ctrl-l:clear-screen+execute-silent($_footer_cmd \$(cat $_mode_file))"
+preview_toggle_bind="ctrl-p:toggle-preview"
+GHOST="type to filter  ·  ^n new  ^r rename  ^d delete  ·  ^s sessions  ^j zoxide  ^f find  ^w windows  ·  ^p preview"
 
 # determine if the tmux server is running
 tmux_running=1
@@ -102,7 +134,7 @@ run_type="serverless"
 [[ "$tmux_running" -eq 0 ]] && run_type=$([[ "$TMUX" ]] && echo "attached" || echo "detached")
 
 get_sessions_by_last_used() {
-    bash "$HOME/.tmux/plugins/tmux-coffee/bin/coffee-list-sessions.sh" --no-current
+    bash "$BIN_DIR/coffee-list-sessions.sh" --no-current
 }
 
 get_zoxide_results() {
@@ -120,7 +152,7 @@ get_fzf_results() {
 
 get_initial_results() {
     case "$default_mode" in
-        sessions) bash "$HOME/.tmux/plugins/tmux-coffee/bin/coffee-list-sessions.sh" ;;
+        sessions) bash "$BIN_DIR/coffee-list-sessions.sh" ;;
         find) $fd_cmd -H -d "$max_depth" -t d . "$find_path" | sed 's|/$||' ;;
         *) get_fzf_results ;;
     esac
@@ -181,7 +213,7 @@ create_and_attach_session() {
     attached)
         tmux switch-client -t "$session_name"
         # Trigger VPN switch after session change (use run-shell for proper tmux context)
-        tmux run-shell -b "$HOME/.tmux/plugins/tmux-coffee/bin/vpn-switch.sh '$session_name'"
+        tmux run-shell -b "$BIN_DIR/vpn-switch.sh '$session_name'"
         ;;
     detached | serverless) tmux attach -t "$session_name" ;;
     esac
@@ -296,6 +328,9 @@ else
         # Write fzf options to file (one per line, using NUL as delimiter for safety)
         # This avoids complex quoting issues with heredocs
         {
+            printf '%s\0' "--bind" "$preview_toggle_bind"
+            printf '%s\0' "--ghost" "$GHOST"
+            printf '%s\0' "--gutter" " "
             printf '%s\0' "--bind" "$(get_initial_footer_bind)"
             printf '%s\0' "--bind" "$find_bind"
             printf '%s\0' "--bind" "$session_bind"
@@ -312,7 +347,7 @@ else
             printf '%s\0' "--no-scrollbar"
             printf '%s\0' "--header" "$(get_initial_header)"
             printf '%s\0' "--ansi"
-            printf '%s\0' "--tabstop=24"
+            printf '%s\0' "--tabstop=1"
             printf '%s\0' "--no-sort"
             printf '%s\0' "--cycle"
             printf '%s\0' "--delimiter=/"
@@ -321,16 +356,16 @@ else
             printf '%s\0' "--prompt" "$(get_initial_prompt)"
             printf '%s\0' "--marker" "$MARKER"
             printf '%s\0' "--preview" "$preview"
-            printf '%s\0' "--preview-window=${preview_position},75%"
+            printf '%s\0' "--preview-window=$SESSION_PREVIEW_WINDOW"
             printf '%s\0' "--layout=$layout"
         } > "$fzf_cmd_file"
         
         # Use tmux display-popup with border and title (like gopass, terminal, btm)
         # Pass all file paths as arguments since env vars don't transfer to popup subprocess
         # Note: shell-command must be a single string argument
-        tmux display-popup -E -w 90% -h 90% \
+        tmux display-popup -E -w "$POPUP_W" -h "$POPUP_H" \
             -b "$POPUP_BORDER" -S "fg=$POPUP_BORDER_COLOR" -T "$POPUP_TITLE" \
-            "$HOME/.tmux/plugins/tmux-coffee/bin/coffee-popup.sh '$fzf_cmd_file' '$input_file' '$output_file'" || true
+            "$BIN_DIR/coffee-popup.sh '$fzf_cmd_file' '$input_file' '$output_file'" || true
         
         # Read result from output file
         result=$(cat "$output_file" 2>/dev/null || true)
@@ -341,10 +376,10 @@ else
         result=$(get_initial_results | fzf \
             --bind "$(get_initial_footer_bind)" --bind "$find_bind" --bind "$session_bind" --bind "$tab_bind" --bind "$window_bind" --bind "$t_bind" \
             --bind "$zoxide_bind" --bind "$delete_bind" --bind "$new_session_bind" --bind "$rename_bind" \
-            --bind "$resize_bind" --bind "$clear_bind" \
-            --height="$_fzf_height" --border none --no-scrollbar --header "$(get_initial_header)" --ansi --tabstop=24 \
+            --bind "$resize_bind" --bind "$clear_bind" --bind "$preview_toggle_bind" --ghost "$GHOST" --gutter ' ' \
+            --height="$_fzf_height" --border none --no-scrollbar --header "$(get_initial_header)" --ansi --tabstop=1 \
             --no-sort --cycle --delimiter='/' --with-nth="$show_nth" --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" \
-            --preview "$preview" --preview-window=top,75% || true)
+            --preview "$preview" --preview-window="$SESSION_PREVIEW_WINDOW" --layout="$layout" || true)
         ;;
     serverless)
         _fzf_height=$(($(tput lines) - 1))
@@ -380,7 +415,7 @@ fi
 result=$(echo "$result" | sed -e 's/^● //' -e 's/^  //')
 
 # Extract session/path name (strip metadata after tab, if present)
-result=$(printf '%s' "$result" | cut -f1)
+result=$(printf '%s' "$result" | cut -f1 | sed 's/[[:space:]]*$//')
 
 [[ $home_replacer ]] && result=$(echo "$result" | sed -e "s|^~/|$HOME/|")
 
@@ -391,7 +426,7 @@ if [[ "$result" == /* && -d "$result" ]]; then
     escaped_result=$(printf '%q' "$result")
     tmux display-popup -E -w 50 -h 20 \
         -b "$POPUP_BORDER" -S "fg=$POPUP_BORDER_COLOR" -T "  new session  " \
-        "bash $HOME/.tmux/plugins/tmux-coffee/bin/coffee-new-session.sh $escaped_result"
+        "bash $BIN_DIR/coffee-new-session.sh $escaped_result"
     # Switch to the newly created session
     if [[ -f /tmp/tmux-coffee-last-created ]]; then
         session_name=$(cat /tmp/tmux-coffee-last-created)

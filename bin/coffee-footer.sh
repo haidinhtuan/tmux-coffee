@@ -41,13 +41,20 @@ esac
 # Get current session and VPN (always show segment, empty if no data)
 _cur_sess=$(tmux display-message -p '#S' 2>/dev/null)
 _cur_vpn=$(tmux show-environment -t "$_cur_sess" SESSION_VPN 2>/dev/null | cut -d= -f2)
-[[ -z "$_cur_vpn" || "$_cur_vpn" == "none" ]] && _cur_vpn="NONE"
+# No per-session binding: show the live connection state if a status command
+# is configured (@coffee-vpn-status-cmd prints e.g. "IONOS + IG VPN" or nothing)
+if [[ -z "$_cur_vpn" || "$_cur_vpn" == "none" ]]; then
+    _status_cmd=$(tmux show-option -gqv @coffee-vpn-status-cmd 2>/dev/null)
+    _cur_vpn=""
+    [[ -n "$_status_cmd" ]] && _cur_vpn=$(timeout 2 bash -c "$_status_cmd" 2>/dev/null | head -1)
+    [[ -z "$_cur_vpn" ]] && _cur_vpn="no vpn"
+fi
 
 # Truncate session name if too long
 [[ ${#_cur_sess} -gt 24 ]] && _cur_sess="${_cur_sess:0:22}.."
 
 # Truncate VPN name if too long
-[[ ${#_cur_vpn} -gt 10 ]] && _cur_vpn="${_cur_vpn:0:8}.."
+[[ ${#_cur_vpn} -gt 16 ]] && _cur_vpn="${_cur_vpn:0:14}.."
 
 # Window name and pane count
 _cur_win=$(tmux display-message -p '#W' 2>/dev/null)
@@ -153,10 +160,20 @@ _wins_label="window"; (( _n_wins != 1 )) && _wins_label="windows"
 stats_sess_text=" $_n_sess $_sess_label "
 stats_wins_text=" $_n_wins $_wins_label "
 if [[ -n "$_uptime" ]]; then uptime_text=" $_uptime "; else uptime_text=" "; fi
-right_visible_len=$(( ${#stats_sess_text} + ${#stats_wins_text} + ${#uptime_text} ))
+compact=false
+(( cols < 110 )) && compact=true
+if $compact; then
+    right_visible_len=$(( ${#stats_sess_text} ))
+else
+    right_visible_len=$(( ${#stats_sess_text} + ${#stats_wins_text} + ${#uptime_text} ))
+fi
 
 # Padding: fzf 0.67+ uses rivo/uniseg which counts PUA glyphs as 1 col (correct).
-total_powerline=$(( powerline_count + 3 ))  # +3 for right group: pill_start + 2 arrows
+if $compact; then
+    total_powerline=$(( powerline_count + 2 ))  # pill start + pill end
+else
+    total_powerline=$(( powerline_count + 3 ))  # pill start + 2 arrows
+fi
 pad=$(( cols - left_visible_len - right_visible_len - total_powerline ))
 (( pad < 0 )) && pad=0
 
@@ -173,6 +190,10 @@ printf '%b\033[38;2;%d;%d;%dm\ue0b6' "$MANTLE_BG" "$COL_STATS1_R" "$COL_STATS1_G
 # Sessions segment (pink)
 printf '\033[48;2;%d;%d;%dm\033[1;38;2;24;24;37m%s' \
     "$COL_STATS1_R" "$COL_STATS1_G" "$COL_STATS1_B" "$stats_sess_text"
+if $compact; then
+    printf '%b\033[38;2;%d;%d;%dm\ue0b4\033[0m' "$MANTLE_BG" "$COL_STATS1_R" "$COL_STATS1_G" "$COL_STATS1_B"
+    exit 0
+fi
 # Arrow: sessions <- windows (peach points into pink)
 printf '\033[38;2;%d;%d;%dm\033[48;2;%d;%d;%dm\ue0b2' \
     "$COL_STATS2_R" "$COL_STATS2_G" "$COL_STATS2_B" "$COL_STATS1_R" "$COL_STATS1_G" "$COL_STATS1_B"
