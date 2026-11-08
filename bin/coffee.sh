@@ -384,7 +384,7 @@ else
             printf '%s\0' "--nth=1"
             printf '%s\0' "--list-border=rounded"
             printf '%s\0' "--list-label" "$(get_initial_list_label)"
-            printf '%s\0' "--color=list-border:#cdd6f4,preview-border:#585b70,list-label:#cba6f7:bold,header:#9399b2"
+            printf '%s\0' "--color=list-border:#585b70,preview-border:#585b70,list-label:#cba6f7:bold,header:#9399b2"
             printf '%s\0' "--keep-right"
             printf '%s\0' "--prompt" "$(get_initial_prompt)"
             printf '%s\0' "--marker" "$MARKER"
@@ -413,7 +413,7 @@ else
             --height="$_fzf_height" --border none --no-scrollbar --header "$(get_initial_header)" --ansi --tabstop=1 \
             --no-sort --cycle --delimiter='\t' --nth=1 --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" \
             --list-border=rounded --list-label "$(get_initial_list_label)" \
-            --color='list-border:#cdd6f4,preview-border:#585b70,list-label:#cba6f7:bold,header:#9399b2' \
+            --color='list-border:#585b70,preview-border:#585b70,list-label:#cba6f7:bold,header:#9399b2' \
             --preview "$preview" --preview-window="$SESSION_PREVIEW_WINDOW" --layout="$layout" || true)
         ;;
     serverless)
