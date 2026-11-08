@@ -48,7 +48,7 @@ if [[ -z "$_cur_vpn" || "$_cur_vpn" == "none" ]]; then
     _status_cmd=$(tmux show-option -gqv @coffee-vpn-status-cmd 2>/dev/null)
     _cur_vpn=""
     [[ -n "$_status_cmd" ]] && _cur_vpn=$(timeout 2 bash -c "$_status_cmd" 2>/dev/null | head -1)
-    [[ -z "$_cur_vpn" ]] && _cur_vpn="no vpn"
+    # empty → the VPN segment is hidden (the shell prompt already shows it)
 fi
 
 # Truncate session name if too long
@@ -121,19 +121,25 @@ left_output+=$(printf '\033[48;2;%d;%d;%dm\033[1;38;2;24;24;37m%s' \
     "$COL_SESSION_R" "$COL_SESSION_G" "$COL_SESSION_B" "$sess_text")
 left_visible_len=$(( left_visible_len + ${#sess_text} ))
 
-# Arrow: session -> vpn
-left_output+=$(printf '\033[38;2;%d;%d;%dm\033[48;2;%d;%d;%dm\ue0b0' \
-    "$COL_SESSION_R" "$COL_SESSION_G" "$COL_SESSION_B" "$COL_VPN_R" "$COL_VPN_G" "$COL_VPN_B")
-powerline_count=$((powerline_count + 1))
+if [[ -n "$_cur_vpn" ]]; then
+    # Arrow: session -> vpn
+    left_output+=$(printf '\033[38;2;%d;%d;%dm\033[48;2;%d;%d;%dm\ue0b0' \
+        "$COL_SESSION_R" "$COL_SESSION_G" "$COL_SESSION_B" "$COL_VPN_R" "$COL_VPN_G" "$COL_VPN_B")
+    powerline_count=$((powerline_count + 1))
 
-# Segment 3: VPN
-left_output+=$(printf '\033[48;2;%d;%d;%dm\033[1;38;2;24;24;37m%s' \
-    "$COL_VPN_R" "$COL_VPN_G" "$COL_VPN_B" "$vpn_text")
-left_visible_len=$(( left_visible_len + ${#vpn_text} ))
+    # Segment 3: VPN (only when the session has a VPN binding / status command)
+    left_output+=$(printf '\033[48;2;%d;%d;%dm\033[1;38;2;24;24;37m%s' \
+        "$COL_VPN_R" "$COL_VPN_G" "$COL_VPN_B" "$vpn_text")
+    left_visible_len=$(( left_visible_len + ${#vpn_text} ))
 
-# Arrow: vpn -> window
-left_output+=$(printf '\033[38;2;%d;%d;%dm\033[48;2;%d;%d;%dm\ue0b0' \
-    "$COL_VPN_R" "$COL_VPN_G" "$COL_VPN_B" "$COL_WINDOW_R" "$COL_WINDOW_G" "$COL_WINDOW_B")
+    # Arrow: vpn -> window
+    left_output+=$(printf '\033[38;2;%d;%d;%dm\033[48;2;%d;%d;%dm\ue0b0' \
+        "$COL_VPN_R" "$COL_VPN_G" "$COL_VPN_B" "$COL_WINDOW_R" "$COL_WINDOW_G" "$COL_WINDOW_B")
+else
+    # Arrow: session -> window
+    left_output+=$(printf '\033[38;2;%d;%d;%dm\033[48;2;%d;%d;%dm\ue0b0' \
+        "$COL_SESSION_R" "$COL_SESSION_G" "$COL_SESSION_B" "$COL_WINDOW_R" "$COL_WINDOW_G" "$COL_WINDOW_B")
+fi
 powerline_count=$((powerline_count + 1))
 
 # Segment 4: WINDOW
