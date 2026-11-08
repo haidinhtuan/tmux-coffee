@@ -111,15 +111,15 @@ tab_bind="tab:down,btab:up"
 list_sessions_cmd="bash $BIN_DIR/coffee-list-sessions.sh"
 list_dirs_cmd="bash $BIN_DIR/coffee-list-dirs.sh"
 SESSION_HEADER=$($list_sessions_cmd --header)
-session_bind="ctrl-s:change-list-label( sessions )+change-prompt(  )+reload($list_sessions_cmd)+transform-header($list_sessions_cmd --header)+change-preview($preview_script {} $_pwin_file)+change-preview-window~$SESSION_PREVIEW_WINDOW~+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
+session_bind="ctrl-s:change-list-label( sessions )+change-preview-label( session preview )+change-prompt(  )+reload($list_sessions_cmd)+transform-header($list_sessions_cmd --header)+change-preview($preview_script {} $_pwin_file)+change-preview-window~$SESSION_PREVIEW_WINDOW~+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
 # Build zoxide_bind with proper quoting for sed and icons
 _zoxide_sed="sed -e '"
 _zoxide_sed+="$home_replacer"
 _zoxide_sed+="'"
-zoxide_bind='ctrl-j:change-list-label( recent folders )+change-prompt('"$PROMPT"')+reload(zoxide query -l | '"$list_dirs_cmd"')+change-header('"$HEADER"')+change-preview('"$preview_script"' {})+change-preview-window~'"$PREVIEW_WINDOW"'~+execute-silent(echo ZOXIDE > '"$_mode_file"'; '"$_footer_cmd"' ZOXIDE)'
+zoxide_bind='ctrl-j:change-list-label( recent folders )+change-preview-label( folder preview )+change-prompt('"$PROMPT"')+reload(zoxide query -l | '"$list_dirs_cmd"')+change-header('"$HEADER"')+change-preview('"$preview_script"' {})+change-preview-window~'"$PREVIEW_WINDOW"'~+execute-silent(echo ZOXIDE > '"$_mode_file"'; '"$_footer_cmd"' ZOXIDE)'
 fd_cmd="$(which fd 2>/dev/null || which fdfind 2>/dev/null || echo fd)"
-find_bind="ctrl-f:change-list-label( find folders )+change-prompt(  )+reload($fd_cmd -H -d $max_depth -t d . $find_path | $list_dirs_cmd)+change-header($HEADER)+change-preview($preview_script {})+change-preview-window~$PREVIEW_WINDOW~+execute-silent(echo FIND > $_mode_file; $_footer_cmd FIND)"
-window_bind="ctrl-w:change-list-label( windows )+change-prompt(  )+reload(tmux list-windows -a -F '#{session_name}:#{window_index}')+change-header($HEADER)+change-preview($preview_script {})+change-preview-window~$PREVIEW_WINDOW~+execute-silent(echo WINDOWS > $_mode_file; $_footer_cmd WINDOWS)"
+find_bind="ctrl-f:change-list-label( find folders )+change-preview-label( folder preview )+change-prompt(  )+reload($fd_cmd -H -d $max_depth -t d . $find_path | $list_dirs_cmd)+change-header($HEADER)+change-preview($preview_script {})+change-preview-window~$PREVIEW_WINDOW~+execute-silent(echo FIND > $_mode_file; $_footer_cmd FIND)"
+window_bind="ctrl-w:change-list-label( windows )+change-preview-label( window preview )+change-prompt(  )+reload(tmux list-windows -a -F '#{session_name}:#{window_index}')+change-header($HEADER)+change-preview($preview_script {})+change-preview-window~$PREVIEW_WINDOW~+execute-silent(echo WINDOWS > $_mode_file; $_footer_cmd WINDOWS)"
 
 delete_bind="ctrl-d:execute(bash $BIN_DIR/coffee-kill-session.sh \"\$(echo {} | sed -e 's/^● //' -e 's/^  //' | cut -f1 | sed 's/[[:space:]]*$//')\")+clear-screen+reload-sync($list_sessions_cmd)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
 new_session_bind="ctrl-n:execute(bash $BIN_DIR/coffee-new-session.sh)+clear-screen+reload-sync($list_sessions_cmd)+execute-silent(echo SESSIONS > $_mode_file; $_footer_cmd SESSIONS)"
@@ -187,6 +187,13 @@ get_initial_list_label() {
         sessions) echo ' sessions ' ;;
         find) echo ' find folders ' ;;
         *) echo ' recent folders ' ;;
+    esac
+}
+
+get_initial_preview_label() {
+    case "$default_mode" in
+        sessions) echo ' session preview ' ;;
+        *) echo ' folder preview ' ;;
     esac
 }
 
@@ -384,7 +391,8 @@ else
             printf '%s\0' "--nth=1"
             printf '%s\0' "--list-border=rounded"
             printf '%s\0' "--list-label" "$(get_initial_list_label)"
-            printf '%s\0' "--color=list-border:#585b70,preview-border:#585b70,list-label:#cba6f7:bold,header:#9399b2"
+            printf '%s\0' "--preview-label" "$(get_initial_preview_label)"
+            printf '%s\0' "--color=list-border:#585b70,preview-border:#585b70,list-label:#cba6f7:bold,preview-label:#cba6f7:bold,header:#9399b2"
             printf '%s\0' "--keep-right"
             printf '%s\0' "--prompt" "$(get_initial_prompt)"
             printf '%s\0' "--marker" "$MARKER"
@@ -412,8 +420,8 @@ else
             --bind "$resize_bind" --bind "$clear_bind" --bind "$preview_toggle_bind" --bind "$win_next_bind" --bind "$win_prev_bind" --bind "$win_reset_bind" --bind "$drill_in_bind" --bind "$drill_out_bind" --ghost "$GHOST" --gutter ' ' \
             --height="$_fzf_height" --border none --no-scrollbar --header "$(get_initial_header)" --ansi --tabstop=1 \
             --no-sort --cycle --delimiter='\t' --nth=1 --keep-right --prompt "$(get_initial_prompt)" --marker "$MARKER" \
-            --list-border=rounded --list-label "$(get_initial_list_label)" \
-            --color='list-border:#585b70,preview-border:#585b70,list-label:#cba6f7:bold,header:#9399b2' \
+            --list-border=rounded --list-label "$(get_initial_list_label)" --preview-label "$(get_initial_preview_label)" \
+            --color='list-border:#585b70,preview-border:#585b70,list-label:#cba6f7:bold,preview-label:#cba6f7:bold,header:#9399b2' \
             --preview "$preview" --preview-window="$SESSION_PREVIEW_WINDOW" --layout="$layout" || true)
         ;;
     serverless)

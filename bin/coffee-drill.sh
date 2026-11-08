@@ -36,6 +36,7 @@ if [[ "$dir" == in ]]; then
     label=$'\e[1;38;2;250;179;135m'" $session › windows "$'\e[0m'
     printf '%s' "reload-sync(bash $BIN_DIR/coffee-list-windows.sh $(q "$session"))"
     printf '%s' "+change-list-label~${label//\~/-}~"
+    printf '%s' "+change-preview-label( window preview )"
     printf '%s' "+change-header(   #  WINDOW  ·  ← sessions  ·  enter: switch to window)"
     printf '%s' "+change-preview(bash $BIN_DIR/coffee-preview.sh --window $(q "$session") {1})"
     printf '%s' "+pos($pos)"
@@ -54,6 +55,7 @@ if [[ "$dir" == out ]]; then
     pos=${pos:-1}
     printf '%s' "reload-sync(bash $BIN_DIR/coffee-list-sessions.sh)"
     printf '%s' "+change-list-label( sessions )"
+    printf '%s' "+change-preview-label( session preview )"
     printf '%s' "+transform-header(bash $BIN_DIR/coffee-list-sessions.sh --header)"
     printf '%s' "+change-preview(bash $BIN_DIR/coffee-preview.sh {} $pwin_file)"
     printf '%s' "+pos($pos)"

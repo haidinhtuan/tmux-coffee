@@ -81,7 +81,7 @@ rule() {
 if [[ "$target" != *:* ]] && tmux has-session -t "=$target" 2>/dev/null; then
     spath=$(tmux display-message -p -t "=$target:" '#{session_path}' 2>/dev/null)
     nwin=$(tmux display-message -p -t "=$target:" '#{session_windows}' 2>/dev/null)
-    printf '%b%s%b  %b%s window%s%b  %b%s%b\n\n' \
+    printf '%b%s%b  %b%s window%s%b  %b%s%b\n' \
         "$BOLD$MAUVE" "$target" "$RESET" \
         "$PEACH" "$nwin" "$([[ $nwin == 1 ]] || echo s)" "$RESET" \
         "$BLUE" "$(short_path "$spath")" "$RESET"
@@ -100,6 +100,7 @@ if [[ "$target" != *:* ]] && tmux has-session -t "=$target" 2>/dev/null; then
     [[ -n "$state_file" ]] && printf '%s\t%s\n' "$target" "$show_idx" > "$state_file.sel"
 
     # window overview
+    rule "windows"
     name_w=$(tmux list-windows -t "=$target:" -F '#{window_name}' 2>/dev/null | awk '{ if (length > m) m = length } END { print (m > 20 ? 20 : m) }')
     tmux list-windows -t "=$target:" -F '#{window_active}|#{window_index}|#{window_name}|#{pane_current_command}|#{pane_current_path}|#{window_panes}' 2>/dev/null |
     while IFS='|' read -r active idx wname cmd wpath panes; do
@@ -113,7 +114,7 @@ if [[ "$target" != *:* ]] && tmux has-session -t "=$target" 2>/dev/null; then
             "$PEACH" "${cmd:0:10}" "$RESET" "$DIM" "$(short_path "$wpath")" "$RESET" "$extra"
     done
 
-    used=$(( nwin + 4 ))
+    used=$(( nwin + 4 ))  # header + rule + windows + blank + rule
     remain=$(( lines - used - 1 ))
     if (( remain > 3 )); then
         echo
