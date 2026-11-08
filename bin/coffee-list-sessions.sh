@@ -137,7 +137,7 @@ for r in "${rows[@]}"; do
 
     # attached by another client
     if [[ "$attached" -gt 0 && "$name" != "$CURRENT" ]] || [[ "$attached" -gt 1 ]]; then
-        attach="${GREEN}${RESET} "
+        attach="${GREEN} ${RESET} "
     else
         attach="  "
     fi
