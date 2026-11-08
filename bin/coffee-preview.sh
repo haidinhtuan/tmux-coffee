@@ -71,10 +71,13 @@ short_path() {
 }
 
 rule() {
-    local label="$1" n
-    n=$(( cols - ${#label} - 5 ))
-    (( n < 0 )) && n=0
-    printf '%b── %s %s%b\n' "$OVERLAY" "$label" "$(printf '─%.0s' $(seq 1 "$n"))" "$RESET"
+    # centered section heading: dim lines, mauve label
+    local label=" $1 " total left right
+    total=$(( cols - 2 - ${#label} ))
+    (( total < 4 )) && total=4
+    left=$(( total / 2 )); right=$(( total - left ))
+    printf '%b%s%b%s%b%s%b\n' "$OVERLAY" "$(printf '─%.0s' $(seq 1 "$left"))" \
+        "$BOLD$MAUVE" "$label" "$RESET$OVERLAY" "$(printf '─%.0s' $(seq 1 "$right"))" "$RESET"
 }
 
 # ---------- session ----------
